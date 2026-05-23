@@ -117,8 +117,8 @@ impl FIGfont {
             return Err(Error::FontFormat("unsupported font format"));
         }
 
-        self.version       = parms[0].chars().nth(4).unwrap();
-        self.hardblank     = parms[0].chars().nth(5).unwrap();
+        self.version       = parms[0].chars().nth(4).ok_or(Error::FontFormat("invalid font header"))?;
+        self.hardblank     = parms[0].chars().nth(5).ok_or(Error::FontFormat("invalid font header"))?;
         self.height        = parms[1].parse()?;
         self.baseline      = parms[2].parse()?;
         self.max_length    = parms[3].parse()?;
@@ -242,10 +242,10 @@ impl FIGchar {
                 return Ok(self)
             }
             line = line.trim_end().to_string();
-            if line.len() < 1 {
+            if line.is_empty() {
                 return Err(Error::FontFormat("invalid character width"));
             }
-            let mark = line.pop().unwrap();
+            let mark = line.pop().expect("line is non-empty");
             self.lines.push(line.trim_end_matches(mark).to_string());
         }
 

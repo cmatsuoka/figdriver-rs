@@ -111,7 +111,8 @@ fn amount(output: &[String], c: &FIGchar, hardblank: char, mode: u32) -> usize {
 fn trim(output: &[String], width: usize) -> Vec<String> {
     output.iter().map(|line| {
         let s: &str = &line;
-        let index = s.char_indices().nth(width).unwrap().0;
+        let len = s.chars().count();
+        let index = s.char_indices().nth(width.min(len)).map(|(i, _)| i).unwrap_or(s.len());
         s[..index].to_string()
     }).collect()
 }

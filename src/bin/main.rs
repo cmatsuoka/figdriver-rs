@@ -10,7 +10,7 @@ const DEFAULT_FONT : &str = "standard.flf";
 const DEFAULT_WIDTH: usize = 80;
 
 
-fn main() {
+fn main() -> Result<(), Error> {
     let mut pargs = Arguments::from_env();
 
     if pargs.contains(["-h", "--help"]) {
@@ -28,20 +28,28 @@ fn main() {
   -S, --smush           use smushing mode to display characters
   -W, --full-width      display characters in full width
   -w, --width <cols>    set the output width");
-        return;
+        return Ok(());
     }
 
-    let font_dir = pargs.opt_value_from_str(["-d", "--dir"]).unwrap().unwrap_or(FONT_DIR.to_string());
-    let font_name = pargs.opt_value_from_str(["-f", "--font"]).unwrap();
+    let font_dir = pargs.opt_value_from_str::<_, String>(["-d", "--dir"])
+        .map_err(|e| Error::Cli(e.to_string()))?
+        .unwrap_or(FONT_DIR.to_string());
+
+    let font_name = pargs.opt_value_from_str::<_, String>(["-f", "--font"])
+        .map_err(|e| Error::Cli(e.to_string()))?;
+
     let use_kern = pargs.contains(["-k", "--kern"]);
     let use_overlap = pargs.contains(["-o", "--overlap"]);
     let use_paragraph = pargs.contains(["-p", "--paragraph"]);
     let use_full_width = pargs.contains(["-W", "--full-width"]);
     let use_center = pargs.contains(["-c", "--center"]);
     let use_right = pargs.contains(["-r", "--right"]);
-    let width: usize = pargs.opt_value_from_str(["-w", "--width"]).unwrap().unwrap_or(DEFAULT_WIDTH);
 
-    let mut fontpath = PathBuf::from(font_dir);
+    let width: usize = pargs.opt_value_from_str::<_, usize>(["-w", "--width"])
+        .map_err(|e| Error::Cli(e.to_string()))?
+        .unwrap_or(DEFAULT_WIDTH);
+
+    let mut fontpath = PathBuf::from(&font_dir);
     if let Some(name) = font_name {
         fontpath = find_font(fontpath, name);
     } else {
@@ -53,9 +61,7 @@ fn main() {
         .collect::<Vec<_>>()
         .join(" ");
 
-    if let Err(e) = run(&fontpath, &msg, use_kern, use_overlap, use_full_width, use_center, use_right, width, use_paragraph) {
-        println!("Error: {}", e);
-    }
+    run(&fontpath, &msg, use_kern, use_overlap, use_full_width, use_center, use_right, width, use_paragraph)
 }
 
 fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
@@ -110,12 +116,14 @@ fn run(path: &Path, msg: &str, use_kern: bool, use_overlap: bool, use_full_width
         let input = io::BufReader::new(io::stdin());
         if use_paragraph {
             for line in input.lines() {
-                write_paragraph(&mut wr, &line.unwrap(), &re);
+                let line = line?;
+                write_paragraph(&mut wr, &line, &re);
             }
             print_output(&wr.get());
         } else {
             for line in input.lines() {
-                write_line(&mut wr, &line.unwrap(), &re);
+                let line = line?;
+                write_line(&mut wr, &line, &re);
             }
         }
     }

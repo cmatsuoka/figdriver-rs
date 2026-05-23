@@ -20,6 +20,7 @@ pub enum Error {
     CodeTag(u32),
     LineFull,
     FontNotFound(PathBuf),
+    Cli(String),
 }
 
 impl fmt::Display for Error {
@@ -31,6 +32,7 @@ impl fmt::Display for Error {
             Error::CodeTag(tag)      => write!(f, "Invalid code tag: {}", tag),
             Error::LineFull          => write!(f, "Line is full"),
             Error::FontNotFound(path) => write!(f, "Font not found: {}", path.display()),
+            Error::Cli(msg)          => write!(f, "{}", msg),
         }
     }
 }
@@ -41,6 +43,7 @@ impl error::Error for Error {
             Error::Io(err)         => Some(err),
             Error::Parse(err)      => Some(err),
             Error::FontNotFound(_) => None,
+            Error::Cli(_)          => None,
             _                      => None,
         }
     }
