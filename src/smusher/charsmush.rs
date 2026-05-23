@@ -40,13 +40,11 @@ macro_rules! cmp_return {
 
 macro_rules! apply_rule {
     ( $cmd:expr ) => {
-        match $cmd {
-            Some(val) => return Some(val),
-            None      => {},
+        if let Some(val) = $cmd {
+            return Some(val);
         }
     }
 }
-
 
 pub fn smush(l: char, r: char, hardblank: char, right2left: bool, mode: u32) -> Option<char> {
 

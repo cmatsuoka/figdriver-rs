@@ -39,15 +39,9 @@ pub struct FIGfont {
 
 impl FIGfont {
 
-    fn new() -> Self {
-        let mut font: FIGfont = Default::default();
-        font.chars = HashMap::new();
-        font
-    }
-
     /// Create a new FIGfont from the specified .flf or .tlf file.
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        let mut font = Self::new();
+        let mut font = Self::default();
         font.load(path)?;
         Ok(font)
     }
@@ -92,9 +86,8 @@ impl FIGfont {
             if f.read_line(&mut line)? == 0 {
                 break
             }
-            let code = match line.split_whitespace().next() {
-                Some(val) => val,
-                None      => break,
+            let Some(code) = line.split_whitespace().next() else {
+                break;
             };
 
             let mut c = FIGchar::new();

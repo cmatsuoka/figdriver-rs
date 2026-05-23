@@ -27,10 +27,10 @@ pub fn amount(s1: &str, s2: &str, hardblank: char, mode: u32) -> usize {
         l = v1.next().unwrap();
         while l.is_whitespace() {
             amt += 1;
-            l = match v1.next() {
-                Some(val) => val,
-                None      => break,
+            let Some(next) = v1.next() else {
+                break;
             };
+            l = next;
         }
     }
 
@@ -39,10 +39,10 @@ pub fn amount(s1: &str, s2: &str, hardblank: char, mode: u32) -> usize {
         r = v2.next().unwrap();
         while r.is_whitespace() {
             amt += 1;
-            r = match v2.next() {
-                Some(val) => val,
-                None      => break,
+            let Some(next) = v2.next() else {
+                break;
             };
+            r = next;
         }
     }
 
