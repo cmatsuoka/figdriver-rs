@@ -4,7 +4,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use Error;
+use crate::Error;
 
 pub const SMUSH_EQUAL    : u32 = 1;
 pub const SMUSH_UNDERLINE: u32 = 2;
@@ -48,7 +48,7 @@ impl FIGfont {
     /// Create a new FIGfont from the specified .flf or .tlf file.
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let mut font = Self::new();
-        try!(font.load(path));
+        font.load(path)?;
         Ok(font)
     }
 
@@ -62,18 +62,18 @@ impl FIGfont {
 
     /// Load a font from the given .flf or .tlf file.
     fn load<P: AsRef<Path>>(&mut self, path: P) -> Result<&Self, Error> {
-        let file = try!(File::open(path));
+        let file = File::open(path)?;
         let mut f = BufReader::new(&file);
 
         let mut line = String::new();
 
-        try!(f.read_line(&mut line));
-        try!(self.parse_header(&line));
+        f.read_line(&mut line)?;
+        self.parse_header(&line)?;
 
         // Skip comment lines
         for _ in 0..self.comment_lines {
             line.clear();
-            try!(f.read_line(&mut line));
+            f.read_line(&mut line)?;
         }
 
         // Define default 0-code character
@@ -82,14 +82,14 @@ impl FIGfont {
         // Load required characters
         for i in (32..127).chain(vec![196, 215, 220, 228, 246, 252, 223]) {
             let mut c = FIGchar::new();
-            try!(c.load(&mut f, self.height));
+            c.load(&mut f, self.height)?;
             self.chars.insert(char_from_u32(i).unwrap(), c);
         }
 
         // Load code-tagged characters
         loop {
             line.clear();
-            if try!(f.read_line(&mut line)) == 0 {
+            if f.read_line(&mut line)? == 0 {
                 break
             }
             let code = match line.split_whitespace().next() {
@@ -98,7 +98,7 @@ impl FIGfont {
             };
 
             let mut c = FIGchar::new();
-            try!(c.load(&mut f, self.height));
+            c.load(&mut f, self.height)?;
             self.chars.insert(char_from_u32(u32_from_str(code)?)?, c);
         }
 
@@ -119,14 +119,14 @@ impl FIGfont {
 
         self.version       = parms[0].chars().nth(4).unwrap();
         self.hardblank     = parms[0].chars().nth(5).unwrap();
-        self.height        = try!(parms[1].parse());
-        self.baseline      = try!(parms[2].parse());
-        self.max_length    = try!(parms[3].parse());
-        self.old_layout    = try!(parms[4].parse());
-        self.comment_lines = try!(parms[5].parse());
+        self.height        = parms[1].parse()?;
+        self.baseline      = parms[2].parse()?;
+        self.max_length    = parms[3].parse()?;
+        self.old_layout    = parms[4].parse()?;
+        self.comment_lines = parms[5].parse()?;
         self.right_to_left = parms[6] == "1";
-        self.layout        = try!(parms[7].parse());
-        self.count         = try!(parms[8].parse());
+        self.layout        = parms[7].parse()?;
+        self.count         = parms[8].parse()?;
 
         Ok(self)
     }
@@ -176,8 +176,8 @@ impl FIGchar {
     /// # Example
     ///
     /// ```
-    /// # fn foo() -> Result<(), rustlet::Error> {
-    /// let c = rustlet::FIGchar::from_lines(&vec!["123", "456", "789"])?;
+    /// # fn foo() -> Result<(), figdriver::Error> {
+    /// let c = figdriver::FIGchar::from_lines(&vec!["123", "456", "789"])?;
     /// let output = format!("{}", c);
     ///
     /// assert_eq!(output, "123\n456\n789\n".to_string());
@@ -204,8 +204,8 @@ impl FIGchar {
     /// # Example
     ///
     /// ```
-    /// # fn foo() -> Result<(), rustlet::Error> {
-    /// let c = rustlet::FIGchar::from_lines(&vec!["123", "456", "789"])?;
+    /// # fn foo() -> Result<(), figdriver::Error> {
+    /// let c = figdriver::FIGchar::from_lines(&vec!["123", "456", "789"])?;
     /// let lines = c.get();
     ///
     /// assert_eq!(lines, vec!["123".to_string(), "456".to_string(), "789".to_string()]);
@@ -235,12 +235,12 @@ impl FIGchar {
                 (0..height).for_each(|_| self.lines.push("".to_owned()));
                 return Ok(self)
             }
-            line = line.trim_right().to_string();
+            line = line.trim_end().to_string();
             if line.len() < 1 {
                 return Err(Error::FontFormat("invalid character width"));
             }
             let mark = line.pop().unwrap();
-            self.lines.push(line.trim_right_matches(mark).to_string());
+            self.lines.push(line.trim_end_matches(mark).to_string());
         }
 
         Ok(self)

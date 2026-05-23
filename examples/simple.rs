@@ -1,7 +1,5 @@
-extern crate rustlet;
-
 use std::io::{self, BufRead};
-use rustlet::{FIGfont, Smusher, Wrapper};
+use figdriver::{FIGfont, Smusher, Wrapper};
 
 fn main() {
     match run() {
@@ -13,7 +11,7 @@ fn main() {
 // This example reads a text input from stdin and renders the text using the
 // small FIGfont, wrapping lines if necessary.
 
-fn run() -> Result<(), rustlet::Error> {
+fn run() -> Result<(), figdriver::Error> {
     let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/small.flf";
     let font = FIGfont::from_path(&path)?;
     let mut wr = Wrapper::new(Smusher::new(&font), 78);
@@ -29,7 +27,7 @@ fn run() -> Result<(), rustlet::Error> {
 }
 
 fn print_output(v: &Vec<String>) {
-    v.iter().for_each(|x| println!("{}", x));
+    for x in v {
+        println!("{}", x);
+    }
 }
-
-

@@ -1,9 +1,7 @@
-extern crate rustlet;
-
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
-use rustlet::{FIGfont, Smusher};
+use figdriver::{FIGfont, Smusher};
 
 fn main() {
     match run() {
@@ -15,7 +13,7 @@ fn main() {
 // This example lists all FIGfonts in the fonts directory, like showfigfonts(6) utility
 // distributed with FIGlet.
 
-fn run() -> Result<(), Box<Error>> {
+fn run() -> Result<(), Box<dyn Error>> {
     let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts";
     let mut fonts: Vec<_> = fs::read_dir(&path)?.map(|x| x.unwrap().path()).collect();
     fonts.sort();
@@ -25,13 +23,15 @@ fn run() -> Result<(), Box<Error>> {
     Ok(())
 }
 
-fn show_font(p: PathBuf, prefix: &str) -> Result<(), Box<Error>> {
+fn show_font(p: PathBuf, prefix: &str) -> Result<(), Box<dyn Error>> {
     let font = FIGfont::from_path(p.to_str().unwrap())?;
     let name = p.strip_prefix(prefix)?.file_stem().unwrap().to_str().unwrap();
     println!("{}:", name); 
     let mut sm = Smusher::new(&font);
     sm.push_str(name);
-    sm.get().iter().for_each(|x| println!("{}", x));
+    for x in sm.get() {
+        println!("{}", x);
+    }
     println!("\n");
     Ok(())
 }

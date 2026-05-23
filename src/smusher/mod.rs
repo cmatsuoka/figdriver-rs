@@ -1,6 +1,5 @@
 use std::cmp::min;
-pub use figfont::{FIGchar, FIGfont};
-pub use wrapper::Wrapper;
+pub use crate::figfont::{FIGchar, FIGfont};
 
 mod charsmush;
 pub mod strsmush;
@@ -29,12 +28,12 @@ impl<'a> Smusher<'a> {
     /// # Examples
     ///
     /// ```
-    /// # fn foo() -> Result<(), Box<std::error::Error>> {
+    /// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
     /// // Load a FIGfont
-    /// let mut font = rustlet::FIGfont::from_path("small.flf")?;
+    /// let mut font = figdriver::FIGfont::from_path("small.flf")?;
     ///
     /// // Create a smusher using the FIGfont
-    /// let mut sm = rustlet::Smusher::new(&font);
+    /// let mut sm = figdriver::Smusher::new(&font);
     /// # Ok(())
     /// # }
     /// ```

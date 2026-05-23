@@ -1,5 +1,4 @@
-extern crate rustlet;
-use rustlet::{FIGfont, Smusher};
+use figdriver::{FIGfont, Smusher};
 
 fn main() {
     match run() {
@@ -15,8 +14,8 @@ fn main() {
 // | |_| |/ _ \ | |/ _ \  \ \ /\ / / _ \| '__| |/ _` |
 // |  _  |  __/ | | (_) |  \ V  V / (_) | |  | | (_| |
 // |_| |_|\___|_|_|\___/    \_/\_/ \___/|_|  |_|\__,_|
-                                                   
-fn run() -> Result<Vec<String>, rustlet::Error> {
+                                                    
+fn run() -> Result<Vec<String>, figdriver::Error> {
     let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
     let font = FIGfont::from_path(&path)?;
     let mut sm = Smusher::new(&font);

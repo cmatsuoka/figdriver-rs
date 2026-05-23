@@ -1,11 +1,9 @@
-#[cfg(test)] #[macro_use] extern crate matches;
-
 use std::error;
 use std::fmt;
 use std::io;
 use std::num;
+use std::path::PathBuf;
 
-//pub use self::figfont::{FIGchar, FIGfont};
 pub use self::figfont::*;
 pub use self::wrapper::{Align, Wrapper};
 pub use self::smusher::Smusher;
@@ -21,36 +19,29 @@ pub enum Error {
     Parse(num::ParseIntError),
     CodeTag(u32),
     LineFull,
+    FontNotFound(PathBuf),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
+        match self {
             Error::FontFormat(descr) => write!(f, "{}", descr),
-            Error::Io(ref err)       => write!(f, "{}", err),
-            Error::Parse(ref err)    => write!(f, "Can't parse value: {}", err),
+            Error::Io(err)           => write!(f, "{}", err),
+            Error::Parse(err)        => write!(f, "Can't parse value: {}", err),
             Error::CodeTag(tag)      => write!(f, "Invalid code tag: {}", tag),
-            Error::LineFull          => write!(f, "Line is full"), 
+            Error::LineFull          => write!(f, "Line is full"),
+            Error::FontNotFound(path) => write!(f, "Font not found: {}", path.display()),
         }
     }
 }
 
 impl error::Error for Error {
-    fn description(&self) -> &str {
-        match *self {
-            Error::FontFormat(_)  => "Unsupported font format",
-            Error::Io(ref err)    => err.description(),
-            Error::Parse(ref err) => err.description(),
-            Error::CodeTag(_)     => "Invalid code tag",
-            Error::LineFull       => "Line full", 
-        }
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
-        match *self {
-            Error::Io(ref err)    => Some(err),
-            Error::Parse(ref err) => Some(err),
-            _                     => None,
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Error::Io(err)         => Some(err),
+            Error::Parse(err)      => Some(err),
+            Error::FontNotFound(_) => None,
+            _                      => None,
         }
     }
 }

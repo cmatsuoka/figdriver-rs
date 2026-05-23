@@ -1,5 +1,5 @@
-use Error;
-use Smusher;
+use crate::Error;
+use crate::Smusher;
 
 pub enum Align {
     Left,
@@ -28,13 +28,13 @@ impl<'a> Wrapper<'a> {
     /// # Examples
     ///
     /// ```
-    /// # fn foo() -> Result<(), Box<std::error::Error>> {
+    /// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
     /// // Create a smusher using the specified FIGfont
-    /// let font = rustlet::FIGfont::from_path("small.flf")?;
-    /// let mut sm = rustlet::Smusher::new(&font);
+    /// let font = figdriver::FIGfont::from_path("small.flf")?;
+    /// let mut sm = figdriver::Smusher::new(&font);
     ///
     /// // Create a line wrapper using our smusher and maximum width of 80 columns
-    /// let mut wr = rustlet::Wrapper::new(sm, 80);
+    /// let mut wr = figdriver::Wrapper::new(sm, 80);
     /// # Ok(())
     /// # }
     /// ```
@@ -60,10 +60,10 @@ impl<'a> Wrapper<'a> {
     /// # Examples
     ///
     /// ```
-    /// # fn foo() -> Result<(), Box<std::error::Error>> {
+    /// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
     /// // Create a new wrapper
-    /// let mut font = rustlet::FIGfont::from_path("small.flf")?;
-    /// let mut wr = rustlet::Wrapper::new(rustlet::Smusher::new(&font), 80);
+    /// let mut font = figdriver::FIGfont::from_path("small.flf")?;
+    /// let mut wr = figdriver::Wrapper::new(figdriver::Smusher::new(&font), 80);
     ///
     /// // Add a string to the output buffer
     /// wr.push_str("hello")?;
@@ -144,7 +144,7 @@ impl<'a> Wrapper<'a> {
     /// buffer contents (if any) will be passed to the flush callback, the buffer will be
     /// cleared, and the new string will be added to the buffer. If the string is wider
     /// than the output buffer, it will be wrapped at character level.
-    pub fn wrap_str(&mut self, s: &str, flush: &Fn(&Vec<String>)) {
+    pub fn wrap_str(&mut self, s: &str, flush: &dyn Fn(&Vec<String>)) {
 
         let empty = s.trim().is_empty();
 
@@ -173,7 +173,7 @@ impl<'a> Wrapper<'a> {
     /// be passed to the flush callback, the buffer will be cleared, and the new character
     /// will be added to the buffer. If the character is wider than the maximum width, it
     /// will be added without any additional processing.
-    pub fn wrap_word(&mut self, word: &str, flush: &Fn(&Vec<String>)) {
+      pub fn wrap_word(&mut self, word: &str, flush: &dyn Fn(&Vec<String>)) {
         for c in word.chars() {
             if self.push(c).is_err() {
                 if !self.buffer.is_empty() {

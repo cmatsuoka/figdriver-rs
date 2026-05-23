@@ -1,8 +1,8 @@
-use smusher::charsmush;
+use super::charsmush;
 
 trait CharExt {
     fn char_len(&self) -> usize;
-    fn char_index(&self, usize) -> usize;
+    fn char_index(&self, _: usize) -> usize;
 }
 
 impl<'a> CharExt for &'a str {
