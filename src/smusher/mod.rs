@@ -46,7 +46,7 @@ impl<'a> Smusher<'a> {
             output    : Vec::new(),
         };
         for _ in 0..sm.font.height {
-            sm.output.push("".to_string());
+            sm.output.push(String::new());
         }
         sm
     }
@@ -67,13 +67,17 @@ impl<'a> Smusher<'a> {
 
     /// Clear the output buffer.
     pub fn clear(&mut self) {
-        self.output.iter_mut().for_each(|x| x.clear());
+        for x in &mut self.output {
+            x.clear();
+        }
     }
 
     /// Add a string to the output buffer, applying the smushing rules specified in the font
     /// layout.
     pub fn push_str(&mut self, s: &str) {
-        s.chars().for_each(|x| self.push(x));
+        for x in s.chars() {
+            self.push(x);
+        }
     }
 
     /// Add a character to the output buffer, applying the smushing rules specified in the font
@@ -96,15 +100,15 @@ impl<'a> Smusher<'a> {
     }
 }
 
-fn amount(output: &Vec<String>, c: &FIGchar, hardblank: char, mode: u32) -> usize {
+fn amount(output: &[String], c: &FIGchar, hardblank: char, mode: u32) -> usize {
     let mut amt = 9999;
-    for (line, cline) in output.iter().zip(&c.get()) {
-        amt = min(amt, strsmush::amount(&line, &cline, hardblank, mode));
+    for (line, cline) in output.iter().zip(c.get()) {
+        amt = min(amt, strsmush::amount(line, cline, hardblank, mode));
     }
     amt
 }
 
-fn trim(output: &Vec<String>, width: usize) -> Vec<String> {
+fn trim(output: &[String], width: usize) -> Vec<String> {
     output.iter().map(|line| {
         let s: &str = &line;
         let index = s.char_indices().nth(width).unwrap().0;
@@ -112,7 +116,7 @@ fn trim(output: &Vec<String>, width: usize) -> Vec<String> {
     }).collect()
 }
 
-fn smush(output: &Vec<String>, c: &FIGchar, hardblank: char, full_width: bool, mode: u32) -> Vec<String> {
+fn smush(output: &[String], c: &FIGchar, hardblank: char, full_width: bool, mode: u32) -> Vec<String> {
 
     let amt = match full_width {
         true  => 0,
@@ -121,8 +125,8 @@ fn smush(output: &Vec<String>, c: &FIGchar, hardblank: char, full_width: bool, m
 
     let mut res = Vec::new();
 
-    for (line, cline) in output.iter().zip(&c.get()) {
-        res.push(strsmush::smush(&line, &cline, amt, hardblank, mode));
+    for (line, cline) in output.iter().zip(c.get()) {
+        res.push(strsmush::smush(line, cline, amt, hardblank, mode));
     }
 
     res

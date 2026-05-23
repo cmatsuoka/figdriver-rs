@@ -145,7 +145,7 @@ fn write_tokens(wr: &mut figdriver::Wrapper, s: &str, re: &Regex) {
     }
 }
 
-fn print_output(v: &Vec<String>) {
+fn print_output(v: &[String]) {
     for x in v {
         println!("{}", x);
     }

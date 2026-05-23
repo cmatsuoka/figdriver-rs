@@ -71,17 +71,19 @@ pub fn smush(s1: &str, s2x: &str, mut amt: usize, hardblank: char, mode: u32) ->
     }
 
     let l2 = s2.char_len();
-    let mut res = "".to_owned();
+    let mut res = String::new();
     let m1 = l1 - amt;
 
     // part 1: only characters from s1
     // don't use the index operator, we want characters not bytes
     let mut v1 = s1.chars();
-    (0..m1).for_each(|_| res.push(v1.next().unwrap()));
+    for _ in 0..m1 {
+        res.push(v1.next().unwrap());
+    }
 
     // part 2: s1 and s2 overlap
     let mut v2 = s2.chars();
-    (0..l2).for_each(|_| {
+    for _ in 0..l2 {
         let l = match v1.next() {
             Some(v) => v,
             None    => ' ',
@@ -95,12 +97,14 @@ pub fn smush(s1: &str, s2x: &str, mut amt: usize, hardblank: char, mode: u32) ->
         } else {
             res.push(if l == ' ' { r } else { l });
         }
-    });
+    }
 
     // part 3: remainder of s1 after the end of s2
     // don't use the index operator, we want characters not bytes
     let m2 = m1 + l2;
-    (m2..l1).for_each(|_| res.push(v1.next().unwrap()));
+    for _ in m2..l1 {
+        res.push(v1.next().unwrap());
+    }
 
     res
 }

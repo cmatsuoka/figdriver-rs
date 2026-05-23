@@ -9,7 +9,7 @@ macro_rules! new_smusher {
     }
 }
 
-fn dummy(_: &Vec<String>) {
+fn dummy(_: &[String]) {
 }
 
 #[test]

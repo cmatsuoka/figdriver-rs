@@ -105,7 +105,7 @@ impl FIGfont {
         Ok(self)
     }
 
-    fn parse_header(&mut self, line: &String) -> Result<&Self, Error> {
+    fn parse_header(&mut self, line: &str) -> Result<&Self, Error> {
 
         if !line.starts_with("flf2") && !line.starts_with("tlf2") {
             return Err(Error::FontFormat("unsupported font format"));
@@ -177,7 +177,7 @@ impl FIGchar {
     ///
     /// ```
     /// # fn foo() -> Result<(), figdriver::Error> {
-    /// let c = figdriver::FIGchar::from_lines(&vec!["123", "456", "789"])?;
+    /// let c = figdriver::FIGchar::from_lines(&["123", "456", "789"])?;
     /// let output = format!("{}", c);
     ///
     /// assert_eq!(output, "123\n456\n789\n".to_string());
@@ -185,7 +185,7 @@ impl FIGchar {
     /// # }
     /// # foo();
     /// ```
-    pub fn from_lines(lines: &Vec<&str>) -> Result<Self, Error> {
+    pub fn from_lines(lines: &[&str]) -> Result<Self, Error> {
         let mut c = Self::new();
         if !lines.is_empty() {
             let width = lines[0].chars().count();
@@ -205,21 +205,23 @@ impl FIGchar {
     ///
     /// ```
     /// # fn foo() -> Result<(), figdriver::Error> {
-    /// let c = figdriver::FIGchar::from_lines(&vec!["123", "456", "789"])?;
+    /// let c = figdriver::FIGchar::from_lines(&["123", "456", "789"])?;
     /// let lines = c.get();
     ///
-    /// assert_eq!(lines, vec!["123".to_string(), "456".to_string(), "789".to_string()]);
+    /// assert_eq!(lines, &["123".to_string(), "456".to_string(), "789".to_string()]);
     /// # Ok(())
     /// # }
     /// # foo();
     /// ```
-    pub fn get(&self) -> Vec<String> {
-        self.lines.to_owned()
+    pub fn get(&self) -> &[String] {
+        &self.lines
     }
 
     fn with_lines(num: usize) -> Self {
         let mut c = Self::new();
-        (0..num).for_each(|_| c.lines.push("".to_owned()));
+        for _ in 0..num {
+            c.lines.push(String::new());
+        }
         c
     }
 
@@ -229,10 +231,14 @@ impl FIGchar {
             line.clear();
             if f.read_line(&mut line).is_err() {
                 // read rest of lines
-                (i+1..height).for_each(|_| { let _ = f.read_line(&mut line); });
+                for _ in (i+1)..height {
+                    let _ = f.read_line(&mut line);
+                }
                 // If one line fails to load, clear other lines as well
                 self.lines.clear();
-                (0..height).for_each(|_| self.lines.push("".to_owned()));
+                for _ in 0..height {
+                    self.lines.push(String::new());
+                }
                 return Ok(self)
             }
             line = line.trim_end().to_string();
@@ -264,7 +270,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let f = FIGchar::from_lines(&vec![ "1  ", " 2 ", "  3" ]).unwrap();
+        let f = FIGchar::from_lines(&["1  ", " 2 ", "  3"]).unwrap();
         assert_eq!(format!("{}", f), "1  \n 2 \n  3\n");
     }
 
@@ -291,37 +297,45 @@ mod tests {
         let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
         let font = FIGfont::from_path(&path).unwrap();
 
-        let ch = ' ';
-        assert_eq!(font.get(ch).get(), vec![r" $",
-                                            r" $",
-                                            r" $",
-                                            r" $",
-                                            r" $",
-                                            r" $"]);
+    let ch = ' ';
+        assert_eq!(font.get(ch).get(), &[
+            " $".to_string(),
+            " $".to_string(),
+            " $".to_string(),
+            " $".to_string(),
+            " $".to_string(),
+            " $".to_string(),
+        ]);
 
-        let ch = 'A';
-        assert_eq!(font.get(ch).get(), vec![r"     _    ",
-                                            r"    / \   ",
-                                            r"   / _ \  ",
-                                            r"  / ___ \ ",
-                                            r" /_/   \_\",
-                                            r"          "]);
+       let ch = 'A';
+        assert_eq!(font.get(ch).get(), &[
+            r"     _    ".to_string(),
+            r"    / \   ".to_string(),
+            r"   / _ \  ".to_string(),
+            r"  / ___ \ ".to_string(),
+            r" /_/   \_\".to_string(),
+            r"          ".to_string(),
+        ]);
 
         let ch = char::from_u32(223).unwrap();
-        assert_eq!(font.get(ch).get(), vec![r"   ___ ",
-                                            r"  / _ \",
-                                            r" | |/ /",
-                                            r" | |\ \",
-                                            r" | ||_/",
-                                            r" |_|   "]);
+        assert_eq!(font.get(ch).get(), &[
+            r"   ___ ".to_string(),
+            r"  / _ \".to_string(),
+            r" | |/ /".to_string(),
+            r" | |\ \".to_string(),
+            r" | ||_/".to_string(),
+            r" |_|   ".to_string(),
+        ]);
 
         let ch = char::from_u32(3232).unwrap();
-        assert_eq!(font.get(ch).get(), vec![r"   _____)",
-                                            r"  /_ ___/",
-                                            r"  / _ \  ",
-                                            r" | (_) | ",
-                                            r" $\___/$ ",
-                                            r"         "]);
+        assert_eq!(font.get(ch).get(), &[
+            r"   _____)".to_string(),
+            r"  /_ ___/".to_string(),
+            r"  / _ \  ".to_string(),
+            r" | (_) | ".to_string(),
+            r" $\___/$ ".to_string(),
+            r"         ".to_string(),
+        ]);
     }
 
     #[test]
@@ -329,21 +343,23 @@ mod tests {
         let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
         let font = FIGfont::from_path(&path).unwrap();
 
-        let ch = '\t';
-        assert_eq!(font.get(ch).get(), vec![r" $",
-                                            r" $",
-                                            r" $",
-                                            r" $",
-                                            r" $",
-                                            r" $"]);
+   let ch = '\t';
+        assert_eq!(font.get(ch).get(), &[
+            " $".to_string(),
+            " $".to_string(),
+            " $".to_string(),
+            " $".to_string(),
+            " $".to_string(),
+            " $".to_string(),
+        ]);
     }
 
     #[test]
     fn test_char_line_width() {
-        let c = FIGchar::from_lines(&vec!["123", "456", "789"]);
+        let c = FIGchar::from_lines(&["123", "456", "789"]);
         assert!(c.is_ok());
 
-        let c = FIGchar::from_lines(&vec!["123", "456", "7890"]);
+        let c = FIGchar::from_lines(&["123", "456", "7890"]);
         assert!(matches!(c, Err(Error::FontFormat(_))));
     }
 }

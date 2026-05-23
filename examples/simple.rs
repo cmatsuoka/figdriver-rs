@@ -26,7 +26,7 @@ fn run() -> Result<(), figdriver::Error> {
     Ok(())
 }
 
-fn print_output(v: &Vec<String>) {
+fn print_output(v: &[String]) {
     for x in v {
         println!("{}", x);
     }

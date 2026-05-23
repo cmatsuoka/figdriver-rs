@@ -69,7 +69,7 @@ impl<'a> Wrapper<'a> {
     /// wr.push_str("hello")?;
     ///
     /// // Get and print the current output buffer contents
-    /// for line in wr.get() {
+    /// for line in &wr.get() {
     ///     println!("{}", line);
     /// }
     /// # Ok(())
@@ -84,9 +84,9 @@ impl<'a> Wrapper<'a> {
         let v = self.sm.get();
 
         match self.align {
-            Align::Left   => v,
-            Align::Center => add_pad(v, w / 2),
-            Align::Right  => add_pad(v, w),
+            Align::Left   => v.to_vec(),
+            Align::Center => add_pad(&v, w / 2),
+            Align::Right  => add_pad(&v, w),
         }
     }
 
@@ -144,7 +144,7 @@ impl<'a> Wrapper<'a> {
     /// buffer contents (if any) will be passed to the flush callback, the buffer will be
     /// cleared, and the new string will be added to the buffer. If the string is wider
     /// than the output buffer, it will be wrapped at character level.
-    pub fn wrap_str(&mut self, s: &str, flush: &dyn Fn(&Vec<String>)) {
+    pub fn wrap_str(&mut self, s: &str, flush: &dyn Fn(&[String])) {
 
         let empty = s.trim().is_empty();
 
@@ -173,7 +173,7 @@ impl<'a> Wrapper<'a> {
     /// be passed to the flush callback, the buffer will be cleared, and the new character
     /// will be added to the buffer. If the character is wider than the maximum width, it
     /// will be added without any additional processing.
-      pub fn wrap_word(&mut self, word: &str, flush: &dyn Fn(&Vec<String>)) {
+      pub fn wrap_word(&mut self, word: &str, flush: &dyn Fn(&[String])) {
         for c in word.chars() {
             if self.push(c).is_err() {
                 if !self.buffer.is_empty() {
@@ -189,7 +189,7 @@ impl<'a> Wrapper<'a> {
 }
 
 
-fn add_pad(v: Vec<String>, pad_size: usize) -> Vec<String> {
+fn add_pad(v: &[String], pad_size: usize) -> Vec<String> {
     fn pad(num: usize) -> String {
         (0..num).map(|_| " ").collect::<String>()
     }
@@ -206,13 +206,13 @@ mod tests {
 
     #[test]
     fn test_padding() {
-        assert_eq!(add_pad(vec_string!("x", "x"), 0), vec_string!("x", "x"));
-        assert_eq!(add_pad(vec_string!("x", "x"), 4), vec_string!("    x", "    x"));
+        assert_eq!(add_pad(&vec_string!("x", "x"), 0), vec_string!("x", "x"));
+        assert_eq!(add_pad(&vec_string!("x", "x"), 4), vec_string!("    x", "    x"));
     }
 
     #[test]
     fn test_padding_utf8() {
-        assert_eq!(add_pad(vec_string!("á", "á"), 0), vec_string!("á", "á"));
-        assert_eq!(add_pad(vec_string!("á", "á"), 4), vec_string!("    á", "    á"));
+        assert_eq!(add_pad(&vec_string!("á", "á"), 0), vec_string!("á", "á"));
+        assert_eq!(add_pad(&vec_string!("á", "á"), 4), vec_string!("    á", "    á"));
     }
 }
