@@ -49,7 +49,7 @@ fn main() -> Result<(), Error> {
         .map_err(|e| Error::Cli(e.to_string()))?
         .unwrap_or(DEFAULT_WIDTH);
 
-    let mut fontpath = PathBuf::from(&font_dir);
+    let mut fontpath = PathBuf::from(font_dir);
     if let Some(name) = font_name {
         fontpath = find_font(fontpath, name);
     } else {
@@ -70,7 +70,7 @@ fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
     }
 
     if name.starts_with(path::MAIN_SEPARATOR) {
-        return PathBuf::from(&name);
+        return PathBuf::from(name);
     }
 
     fontpath.push(&name);
@@ -78,7 +78,7 @@ fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
         return fontpath;
     }
 
-    PathBuf::from(&name)
+    PathBuf::from(name)
 }
 
 fn run(path: &Path, msg: &str, use_kern: bool, use_overlap: bool, use_full_width: bool,
