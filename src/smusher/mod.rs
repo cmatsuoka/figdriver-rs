@@ -186,4 +186,84 @@ mod tests {
         let output = vec_of_strings![ "12345", "áéíóú" ];
         assert_eq!(trim(&output, 3), vec_of_strings![ "123", "áéí" ]);
     }
+
+    // get() replaces hardblank characters with spaces in the output
+    #[test]
+    fn test_smusher_get_hardblank_replacement() {
+        let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
+        let sm = Smusher::new(&font);
+        let output = sm.get();
+        for line in &output {
+            assert!(!line.contains(font.hardblank));
+        }
+    }
+
+    // is_empty() reports correct state before and after push
+    #[test]
+    fn test_smusher_is_empty() {
+        let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
+        let mut sm = Smusher::new(&font);
+        assert!(sm.is_empty());
+        sm.push('A');
+        assert!(!sm.is_empty());
+    }
+
+    // clear() resets the smusher to empty, allowing reuse
+    #[test]
+    fn test_smusher_clear() {
+        let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
+        let mut sm = Smusher::new(&font);
+        sm.push('A');
+        assert!(!sm.is_empty());
+        sm.clear();
+        assert!(sm.is_empty());
+        sm.push('B');
+        assert!(!sm.is_empty());
+    }
+
+    // len() tracks character count through push and clear
+    #[test]
+    fn test_smusher_len() {
+        let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
+        let mut sm = Smusher::new(&font);
+        assert_eq!(sm.len(), 0);
+        sm.push('A');
+        assert!(sm.len() > 0);
+        sm.clear();
+        assert_eq!(sm.len(), 0);
+    }
+
+    // push_str() appends multiple characters at once
+    #[test]
+    fn test_smusher_push_str() {
+        let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
+        let mut sm = Smusher::new(&font);
+        sm.push_str("AB");
+        let output = sm.get();
+        assert!(!output[0].is_empty());
+    }
+
+    // trim() truncates the rendered output to the given width
+    #[test]
+    fn test_smusher_trim() {
+        let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
+        let mut sm = Smusher::new(&font);
+        sm.push_str("ABC");
+        let len_before = sm.len();
+        sm.trim(2);
+        assert_eq!(sm.len(), 2);
+        assert!(sm.len() < len_before);
+    }
+
+    // full_width mode inserts space between characters
+    #[test]
+    fn test_smusher_full_width() {
+        let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
+        let mut sm = Smusher::new(&font);
+        sm.full_width = true;
+        sm.push('A');
+        sm.push('B');
+        let output = sm.get();
+        assert!(output[0].chars().count() > 1);
+    }
 }

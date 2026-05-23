@@ -248,4 +248,64 @@ mod tests {
         assert_eq!(rule_5('>', '<', figfont::SMUSH_BIGX), Some('X'));
         assert_eq!(rule_5('<', '>', figfont::SMUSH_BIGX), None);
     }
+
+    // Mode 0 (universal) prefers right char, drops hardblank-only collisions
+    #[test]
+    fn test_smush_mode_0() {
+        assert_eq!(smush('x', 'y', '$', false, 0), Some('y'));
+        assert_eq!(smush('x', '$', '$', false, 0), None);
+        assert_eq!(smush('$', 'x', '$', false, 0), None);
+        assert_eq!(smush('$', '$', '$', false, 0), None);
+        assert_eq!(smush('a', 'a', '$', false, 0), Some('a'));
+        assert_eq!(smush(' ', 'x', '$', false, 0), Some('x'));
+        assert_eq!(smush('x', ' ', '$', false, 0), Some('x'));
+    }
+
+    // Right-to-left mode prefers the left character over the right
+    #[test]
+    fn test_smush_right2left() {
+        assert_eq!(smush('x', 'y', '$', true, 0), Some('x'));
+        assert_eq!(smush('x', 'y', '$', false, 0), Some('y'));
+    }
+
+    // Kern mode drops the left character entirely, returning None
+    #[test]
+    fn test_smush_kern() {
+        assert_eq!(smush('x', 'x', '$', false, figfont::SMUSH_KERN), None);
+        assert_eq!(smush('x', 'y', '$', false, figfont::SMUSH_KERN), None);
+        assert_eq!(smush('/', '\\', '$', false, figfont::SMUSH_KERN), None);
+    }
+
+    // Hardblank mode only matches two hardblanks against each other
+    #[test]
+    fn test_smush_hardblank() {
+        assert_eq!(smush('$', '$', '$', false, figfont::SMUSH_HARDBLANK), Some('$'));
+        assert_eq!(smush('$', '$', '$', false, 0), None);
+        assert_eq!(smush('x', '$', '$', false, figfont::SMUSH_HARDBLANK), None);
+    }
+
+    // Spaces are replaced by non-space characters in any mode
+    #[test]
+    fn test_smush_space() {
+        assert_eq!(smush(' ', 'x', '$', false, 0xbf), Some('x'));
+        assert_eq!(smush('x', ' ', '$', false, 0xbf), Some('x'));
+        assert_eq!(smush(' ', ' ', '$', false, 0xbf), Some(' '));
+    }
+
+    // Multiple mode bits combined: equal and bigx rules both apply
+    #[test]
+    fn test_smush_combined_modes() {
+        let mode = figfont::SMUSH_EQUAL | figfont::SMUSH_BIGX;
+        assert_eq!(smush('x', 'x', '$', false, mode), Some('x'));
+        assert_eq!(smush('/', '\\', '$', false, mode), Some('|'));
+        assert_eq!(smush('>', '<', '$', false, mode), Some('X'));
+        assert_eq!(smush('[', ']', '$', false, mode), None);
+    }
+
+    // Multi-byte unicode characters smush correctly
+    #[test]
+    fn test_smush_utf8() {
+        assert_eq!(smush('á', 'é', '$', false, 0), Some('é'));
+        assert_eq!(smush('á', 'á', '$', false, figfont::SMUSH_EQUAL), Some('á'));
+    }
 }

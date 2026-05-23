@@ -336,7 +336,7 @@ mod tests {
         let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
         let font = FIGfont::from_path(&path).unwrap();
 
-   let ch = '\t';
+    let ch = '\t';
         assert_eq!(font.get(ch).get(), &[
             " $".to_string(),
             " $".to_string(),
@@ -354,5 +354,51 @@ mod tests {
 
         let c = FIGchar::from_lines(&["123", "456", "7890"]);
         assert!(matches!(c, Err(Error::FontFormat(_))));
+    }
+
+    // FIGchar from empty slice produces an empty character
+    #[test]
+    fn test_figchar_from_lines_empty() {
+        let c = FIGchar::from_lines(&[]).unwrap();
+        assert!(c.get().is_empty());
+    }
+
+    // Display impl for empty FIGchar produces empty string
+    #[test]
+    fn test_figchar_display_empty() {
+        let c = FIGchar::from_lines(&[]).unwrap();
+        assert_eq!(format!("{}", c), "");
+    }
+
+    // get('\0') returns a character with height empty lines
+    #[test]
+    fn test_font_get_fallback_null() {
+        let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
+        let font = FIGfont::from_path(&path).unwrap();
+        let null_char = font.get('\0');
+        assert!(null_char.get().len() == font.height);
+        for line in null_char.get() {
+            assert!(line.is_empty());
+        }
+    }
+
+    // get() for unknown codepoint returns same fallback as '\0'
+    #[test]
+    fn test_font_get_unknown_char_fallback() {
+        let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
+        let font = FIGfont::from_path(&path).unwrap();
+        let unknown = font.get('\u{1F600}');
+        let null_char = font.get('\0');
+        assert_eq!(unknown.get(), null_char.get());
+    }
+
+    // Loaded font exposes correct height, hardblank, and layout values
+    #[test]
+    fn test_font_fields() {
+        let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
+        let font = FIGfont::from_path(&path).unwrap();
+        assert_eq!(font.height, 6);
+        assert_eq!(font.hardblank, '$');
+        assert!(font.layout > 0);
     }
 }

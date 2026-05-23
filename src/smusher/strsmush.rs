@@ -193,4 +193,46 @@ mod tests {
         assert_eq!(smush("áéí! ", "óú", 1, '$', 0xbf), "áéí!óú".to_string());
         assert_eq!(smush("", "   á", 3, '$', 0xbf), "á".to_string());
     }
+
+    // When amt exceeds s1 length, s2 is truncated from the front
+    #[test]
+    fn test_smush_s2_longer_than_s1() {
+        assert_eq!(smush("ab", "xxxxxxxxxx", 8, '$', 0xbf), "xxxx".to_string());
+        assert_eq!(smush("a", "bbbbbbbbbb", 5, '$', 0xbf), "bbbbbb".to_string());
+        assert_eq!(smush("áé", "óúóúóúóúóúóú", 6, '$', 0xbf), "óúóúóúóú".to_string());
+    }
+
+    // Both strings empty produces empty result
+    #[test]
+    fn test_smush_both_empty() {
+        assert_eq!(smush("", "", 0, '$', 0xbf), "".to_string());
+    }
+
+    // Empty s1 passes through s2, optionally truncated by amt
+    #[test]
+    fn test_smush_s1_empty() {
+        assert_eq!(smush("", "abc", 0, '$', 0xbf), "abc".to_string());
+        assert_eq!(smush("", "abc", 1, '$', 0xbf), "bc".to_string());
+        assert_eq!(smush("", "   ", 0, '$', 0xbf), "   ".to_string());
+    }
+
+    // When amt is larger than both strings, s2 is sliced from the front
+    #[test]
+    fn test_smush_amt_exceeds_s2() {
+        assert_eq!(smush("ab", "cdefghij", 8, '$', 0xbf), "ij".to_string());
+        assert_eq!(smush("abc", "123456", 4, '$', 0xbf), "23456".to_string());
+    }
+
+    // amount() counts trailing spaces and tabs as smushable overlap
+    #[test]
+    fn test_amount_all_whitespace() {
+        assert_eq!(amount("   ", "   ", '$', 0xbf), 6);
+        assert_eq!(amount("  \t", "\t  ", '$', 0xbf), 6);
+    }
+
+    // amt of 0 means no overlap, so strings are concatenated
+    #[test]
+    fn test_smush_amt_zero() {
+        assert_eq!(smush("abc", "xyz", 0, '$', 0xbf), "abcxyz".to_string());
+    }
 }
