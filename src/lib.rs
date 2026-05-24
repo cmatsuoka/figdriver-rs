@@ -17,7 +17,7 @@ pub enum Error {
     FontFormat(&'static str),
     Io(io::Error),
     Parse(num::ParseIntError),
-    CodeTag(u32),
+    CodeTag(i32),
     LineFull,
     FontNotFound(PathBuf),
     Cli(String),

@@ -34,7 +34,7 @@ pub struct FIGfont {
     right_to_left : bool,
     pub layout    : u32,
     count         : u32,      // number of code-tagged FIGcharacters in this FIGfont
-    chars         : HashMap<char, FIGchar>, // actual FIGcharacter definitions for this font
+    chars         : HashMap<i32, FIGchar>, // actual FIGcharacter definitions for this font
 }
 
 impl FIGfont {
@@ -48,7 +48,8 @@ impl FIGfont {
 
     /// Obtain the FIGchar in this font for the given char.
     pub fn get(&self, ch: char) -> &FIGchar {
-        match self.chars.get(&ch) {
+        let code = ch as i32;
+        match self.chars.get(&code) {
             Some(k) => k,
             None    => self.get( if ch == '\t' { ' ' } else { '\0' }),
         }
@@ -71,13 +72,13 @@ impl FIGfont {
         }
 
         // Define default 0-code character
-        self.chars.insert('\0', FIGchar::with_lines(self.height));
+        self.chars.insert(0, FIGchar::with_lines(self.height));
 
         // Load required characters
         for i in (32..127).chain(vec![196, 214, 220, 228, 246, 252, 223]) {
             let mut c = FIGchar::new();
             c.load(&mut f, self.height)?;
-            self.chars.insert(char_from_u32(i).unwrap(), c);
+            self.chars.insert(i as i32, c);
         }
 
         // Load code-tagged characters
@@ -92,7 +93,7 @@ impl FIGfont {
 
             let mut c = FIGchar::new();
             c.load(&mut f, self.height)?;
-            self.chars.insert(char_from_u32(u32_from_str(code)?)?, c);
+            self.chars.insert(i32_from_str(code)?, c);
         }
 
         Ok(self)
@@ -125,29 +126,38 @@ impl FIGfont {
     }
 }
 
-fn char_from_u32(num: u32) -> Result<char, Error> {
-    match char::from_u32(num) {
-        Some(c) => Ok(c),
-        None    => Err(Error::CodeTag(num)),
-    }
-}
-
 // See https://github.com/rust-lang/rfcs/issues/1098
-fn u32_from_str(s: &str) -> Result<u32, Error> {
-    let mut s = s.trim();
-    let mut radix = 10;
+fn i32_from_str(s: &str) -> Result<i32, Error> {
+    let s = s.trim();
+    let radix = 10;
 
-    // return an unused character for translation tables
-    if s.starts_with("-") {
-        return Ok(1);
+    let negative = s.starts_with("-");
+    let s = s.strip_prefix("-").unwrap_or(s);
+
+    let negative_zero = s.starts_with("0") && s.len() == 1;
+
+    let value = if s.starts_with("0x") || s.starts_with("0X") {
+        let hex = &s[2..];
+        let v = u32::from_str_radix(hex, 16)? as i32;
+        if negative {
+            -v
+        } else {
+            v
+        }
+    } else {
+        let v = u32::from_str_radix(s, radix)? as i32;
+        if negative && !negative_zero {
+            -v
+        } else {
+            v
+        }
+    };
+
+    if value == -1 {
+        Err(Error::CodeTag(-1))
+    } else {
+        Ok(value)
     }
-
-    if s.starts_with("0x") || s.starts_with("0X") {
-        radix = 16;
-        s = &s[2..];
-    }
-
-    Ok(u32::from_str_radix(s, radix)?)
 }
 
 
@@ -268,21 +278,18 @@ mod tests {
     }
 
     #[test]
-    fn test_char_from_u32() {
-        assert_eq!(char_from_u32(0x0041).unwrap(), 'A');
-        assert_eq!(char_from_u32(0x00C1).unwrap(), 'Á');
-    }
-
-    #[test]
-    fn test_u32_from_str() {
-        assert!(matches!(u32_from_str("0x0041"), Ok(0x41)));
-        assert!(matches!(u32_from_str("0x00C1"), Ok(0xC1)));
-        assert!(matches!(u32_from_str("  0x41"), Ok(0x41)));
-        assert!(matches!(u32_from_str("0X0041"), Ok(0x41)));
-        assert!(matches!(u32_from_str("-0x100"), Ok(1)));
-        assert!(matches!(u32_from_str("-5"), Ok(1)));
-        assert!(u32_from_str("foobar").is_err());
-        assert!(u32_from_str("").is_err());
+    fn test_i32_from_str() {
+        assert!(matches!(i32_from_str("0x0041"), Ok(0x41)));
+        assert!(matches!(i32_from_str("0x00C1"), Ok(0xC1)));
+        assert!(matches!(i32_from_str("  0x41"), Ok(0x41)));
+        assert!(matches!(i32_from_str("0X0041"), Ok(0x41)));
+        assert!(matches!(i32_from_str("-0x100"), Ok(-0x100)));
+        assert!(matches!(i32_from_str("-5"), Ok(-5)));
+        assert!(i32_from_str("-1").is_err());
+        assert!(matches!(i32_from_str("-0"), Ok(0)));
+        assert!(matches!(i32_from_str("42"), Ok(42)));
+        assert!(i32_from_str("foobar").is_err());
+        assert!(i32_from_str("").is_err());
     }
 
     #[test]
@@ -448,11 +455,11 @@ mod tests {
             ('\u{00FC}', 252),
             ('\u{00DF}', 223),
         ];
-        for (ch, code) in &deutsch_chars {
+        for (_ch, code) in &deutsch_chars {
             assert!(
-                font.chars.contains_key(ch),
+                font.chars.contains_key(code),
                 "Missing required Deutsch character U+{:04X} (code {})",
-                *code, *ch as u32
+                *code, *code
             );
         }
     }
