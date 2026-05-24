@@ -129,29 +129,19 @@ impl FIGfont {
 // See https://github.com/rust-lang/rfcs/issues/1098
 fn i32_from_str(s: &str) -> Result<i32, Error> {
     let s = s.trim();
-    let radix = 10;
-
     let negative = s.starts_with("-");
-    let s = s.strip_prefix("-").unwrap_or(s);
+    let s = s.strip_prefix('-').unwrap_or(s);
 
-    let negative_zero = s.starts_with("0") && s.len() == 1;
-
-    let value = if s.starts_with("0x") || s.starts_with("0X") {
-        let hex = &s[2..];
-        let v = u32::from_str_radix(hex, 16)? as i32;
-        if negative {
-            -v
-        } else {
-            v
-        }
+    let (radix, digits) = if s.starts_with("0x") || s.starts_with("0X") {
+        (16, &s[2..])
+    } else if s.starts_with('0') && s.len() > 1 {
+        (8, s)
     } else {
-        let v = u32::from_str_radix(s, radix)? as i32;
-        if negative && !negative_zero {
-            -v
-        } else {
-            v
-        }
+        (10, s)
     };
+
+    let value = u32::from_str_radix(digits, radix)? as i32;
+    let value = if negative { -value } else { value };
 
     if value == -1 {
         Err(Error::CodeTag(-1))
@@ -290,6 +280,10 @@ mod tests {
         assert!(matches!(i32_from_str("42"), Ok(42)));
         assert!(i32_from_str("foobar").is_err());
         assert!(i32_from_str("").is_err());
+        assert!(matches!(i32_from_str("0755"), Ok(0o755)));
+        assert!(matches!(i32_from_str("010"), Ok(0o10)));
+        assert!(matches!(i32_from_str("-0755"), Ok(-0o755)));
+        assert!(matches!(i32_from_str("-010"), Ok(-0o10)));
     }
 
     #[test]
