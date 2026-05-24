@@ -74,7 +74,7 @@ impl FIGfont {
         self.chars.insert('\0', FIGchar::with_lines(self.height));
 
         // Load required characters
-        for i in (32..127).chain(vec![196, 215, 220, 228, 246, 252, 223]) {
+        for i in (32..127).chain(vec![196, 214, 220, 228, 246, 252, 223]) {
             let mut c = FIGchar::new();
             c.load(&mut f, self.height)?;
             self.chars.insert(char_from_u32(i).unwrap(), c);
@@ -400,5 +400,30 @@ mod tests {
         assert_eq!(font.height, 6);
         assert_eq!(font.hardblank, '$');
         assert!(font.layout > 0);
+    }
+
+    // Verify required German character codes for umlauted "A", "O",
+    // "U", "a", "o" and "u"; and also "ess-zed".
+    #[test]
+    fn test_required_deutsch_codes() {
+        let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
+        let font = FIGfont::from_path(&path).unwrap();
+
+        let deutsch_chars = [
+            ('\u{00C4}', 196),
+            ('\u{00D6}', 214),
+            ('\u{00DC}', 220),
+            ('\u{00E4}', 228),
+            ('\u{00F6}', 246),
+            ('\u{00FC}', 252),
+            ('\u{00DF}', 223),
+        ];
+        for (ch, code) in &deutsch_chars {
+            assert!(
+                font.chars.contains_key(ch),
+                "Missing required Deutsch character U+{:04X} (code {})",
+                *code, *ch as u32
+            );
+        }
     }
 }
