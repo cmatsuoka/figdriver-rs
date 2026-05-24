@@ -117,9 +117,9 @@ impl FIGfont {
         self.max_length    = parms[3].parse()?;
         self.old_layout    = parms[4].parse()?;
         self.comment_lines = parms[5].parse()?;
-        self.right_to_left = parms[6] == "1";
-        self.layout        = parms[7].parse()?;
-        self.count         = parms[8].parse()?;
+        self.right_to_left = parms.get(6).map(|s| *s == "1").unwrap_or(false);
+        self.layout        = parms.get(7).and_then(|s| s.parse().ok()).unwrap_or(0);
+        self.count         = parms.get(8).and_then(|s| s.parse().ok()).unwrap_or(0);
 
         Ok(self)
     }
@@ -400,6 +400,36 @@ mod tests {
         assert_eq!(font.height, 6);
         assert_eq!(font.hardblank, '$');
         assert!(font.layout > 0);
+    }
+
+    // Older font header with only 6 required params (no print_direction, full_layout, codetag_count)
+    #[test]
+    fn test_header_missing_optional_params() {
+        let mut font = FIGfont::default();
+        // 6 fields: identifier height baseline max_length old_layout comment_lines
+        let short_header = "flf2a$ 6 2 30 -1 0";
+        font.parse_header(short_header).unwrap();
+        assert_eq!(font.height, 6);
+        assert_eq!(font.baseline, 2);
+        assert_eq!(font.max_length, 30);
+        assert_eq!(font.old_layout, -1);
+        assert_eq!(font.comment_lines, 0);
+        assert!(!font.right_to_left);
+        assert_eq!(font.layout, 0);
+        assert_eq!(font.count, 0);
+    }
+
+    // Header with optional params set to non-default values
+    #[test]
+    fn test_header_with_optional_params() {
+        let mut font = FIGfont::default();
+        // 10 fields: identifier height baseline max_length old_layout comment_lines print_dir layout count
+        let full_header = "flf2a$ 6 2 30 -1 0 1 255 42";
+        font.parse_header(full_header).unwrap();
+        assert_eq!(font.height, 6);
+        assert!(font.right_to_left);
+        assert_eq!(font.layout, 255);
+        assert_eq!(font.count, 42);
     }
 
     // Verify required German character codes for umlauted "A", "O",
