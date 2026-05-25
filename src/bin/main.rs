@@ -106,7 +106,9 @@ fn run(path: &Path, msg: &str, use_kern: bool, use_overlap: bool, use_full_width
         sm.right2left = true;
     }
 
-    let mut wr = figdriver::Wrapper::new(sm, width);
+    // Subtract 1 from width to match figlet's quirk: figlet treats `-w N` as
+    // "allow lines up to N-1 characters" rather than N characters.
+    let mut wr = figdriver::Wrapper::new(sm, width - 1);
 
     if use_center {
         wr.align = figdriver::Align::Center;

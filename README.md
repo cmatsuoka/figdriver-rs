@@ -10,7 +10,6 @@ project to learn Rust and exercise string manipulation.
 
 |                               | FIGlet       | Our FIGdriver        |
 | ---                           | ---          | ---                  |
-| Terminal width                | Set to _n_-1 | Set to _n_           |
 | Non-UTF8 sub-characters       | Display      | Discard FIGcharacter |
 | Word spacing in overlap mode  | No           | Yes                  |
 | End space in paragraph mode   | Yes          | No                   |
