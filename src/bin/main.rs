@@ -24,6 +24,7 @@ fn main() -> Result<(), Error> {
   -m, --mode <num>      override the font layout mode
   -o, --overlap         use character overlapping mode
   -p, --paragraph       ignore mid-paragraph line breaks
+  -R, --right-to-left   enable right-to-left print direction
   -r, --right           right-align the output
   -S, --smush           use smushing mode to display characters
   -W, --full-width      display characters in full width
@@ -43,6 +44,7 @@ fn main() -> Result<(), Error> {
     let use_paragraph = pargs.contains(["-p", "--paragraph"]);
     let use_full_width = pargs.contains(["-W", "--full-width"]);
     let use_center = pargs.contains(["-c", "--center"]);
+    let use_right_to_left = pargs.contains(["-R", "--right-to-left"]);
     let use_right = pargs.contains(["-r", "--right"]);
 
     let width: usize = pargs.opt_value_from_str::<_, usize>(["-w", "--width"])
@@ -61,7 +63,7 @@ fn main() -> Result<(), Error> {
         .collect::<Vec<_>>()
         .join(" ");
 
-    run(&fontpath, &msg, use_kern, use_overlap, use_full_width, use_center, use_right, width, use_paragraph)
+    run(&fontpath, &msg, use_kern, use_overlap, use_full_width, use_center, use_right, use_right_to_left, width, use_paragraph)
 }
 
 fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
@@ -82,7 +84,7 @@ fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
 }
 
 fn run(path: &Path, msg: &str, use_kern: bool, use_overlap: bool, use_full_width: bool,
-       use_center: bool, use_right: bool, width: usize, use_paragraph: bool) -> Result<(), Error> {
+       use_center: bool, use_right: bool, use_right_to_left: bool, width: usize, use_paragraph: bool) -> Result<(), Error> {
     if !path.exists() {
         return Err(Error::FontNotFound(path.to_path_buf()));
     }
@@ -100,11 +102,15 @@ fn run(path: &Path, msg: &str, use_kern: bool, use_overlap: bool, use_full_width
         sm.full_width = true;
     }
 
+    if use_right_to_left {
+        sm.right2left = true;
+    }
+
     let mut wr = figdriver::Wrapper::new(sm, width);
 
     if use_center {
         wr.align = figdriver::Align::Center;
-    } else if use_right {
+    } else if use_right || use_right_to_left {
         wr.align = figdriver::Align::Right;
     }
 

@@ -31,7 +31,7 @@ pub struct FIGfont {
     max_length    : usize,    // maximum length of any line describing a FIGcharacter
     pub old_layout: i32,
     comment_lines : usize,    // number of comment lines at the start of the file
-    right_to_left : bool,
+    pub right_to_left : bool,
     pub layout    : u32,
     count         : u32,      // number of code-tagged FIGcharacters in this FIGfont
     chars         : HashMap<i32, FIGchar>, // actual FIGcharacter definitions for this font

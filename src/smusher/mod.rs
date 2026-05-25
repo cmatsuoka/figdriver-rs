@@ -42,7 +42,7 @@ impl<'a> Smusher<'a> {
             font,
             mode      : font.layout,
             full_width: font.old_layout == -1,
-            right2left: false,
+            right2left: font.right_to_left,
             output    : Vec::new(),
         };
         for _ in 0..sm.font.height {
@@ -84,7 +84,7 @@ impl<'a> Smusher<'a> {
     /// layout.
     pub fn push(&mut self, ch: char) {
         let fc = self.font.get(ch);
-        self.output = smush(&self.output, fc, self.font.hardblank, self.full_width, self.mode);
+        self.output = smush(&self.output, fc, self.font.hardblank, self.full_width, self.mode, self.right2left);
     }
 
     /// Obtain the size, in sub-characters, of any line of the output buffer.
@@ -100,10 +100,14 @@ impl<'a> Smusher<'a> {
     }
 }
 
-fn amount(output: &[String], c: &FIGchar, hardblank: char, mode: u32) -> usize {
+fn amount(output: &[String], c: &FIGchar, hardblank: char, mode: u32, right2left: bool) -> usize {
     let mut amt = 9999;
     for (line, cline) in output.iter().zip(c.get()) {
-        amt = min(amt, strsmush::amount(line, cline, hardblank, mode));
+        if right2left {
+            amt = min(amt, strsmush::amount_rtl(line, cline, hardblank, mode));
+        } else {
+            amt = min(amt, strsmush::amount(line, cline, hardblank, mode));
+        }
     }
     amt
 }
@@ -117,17 +121,21 @@ fn trim(output: &[String], width: usize) -> Vec<String> {
     }).collect()
 }
 
-fn smush(output: &[String], c: &FIGchar, hardblank: char, full_width: bool, mode: u32) -> Vec<String> {
+fn smush(output: &[String], c: &FIGchar, hardblank: char, full_width: bool, mode: u32, right2left: bool) -> Vec<String> {
 
     let amt = match full_width {
         true  => 0,
-        false => amount(&output, c, hardblank, mode),
+        false => amount(&output, c, hardblank, mode, right2left),
     };
 
     let mut res = Vec::new();
 
     for (line, cline) in output.iter().zip(c.get()) {
-        res.push(strsmush::smush(line, cline, amt, hardblank, mode));
+        if right2left {
+            res.push(strsmush::smush_rtl(line, cline, amt, hardblank, mode));
+        } else {
+            res.push(strsmush::smush(line, cline, amt, hardblank, mode));
+        }
     }
 
     res
@@ -145,34 +153,34 @@ mod tests {
     fn test_amount() {
         let output = vec_of_strings![ "", "", "", "" ];
         let fc = FIGchar::from_lines(&vec![ "   ", "  x", " xx", "xx " ]).unwrap();
-        assert_eq!(amount(&output, &fc, '$', 0xbf), 0);
+        assert_eq!(amount(&output, &fc, '$', 0xbf, false), 0);
 
         let output = vec_of_strings![ "", "", "", "" ];
         let fc = FIGchar::from_lines(&vec![ "   ", "  x", " xx", "   " ]).unwrap();
-        assert_eq!(amount(&output, &fc, '$', 0xbf), 1);
+        assert_eq!(amount(&output, &fc, '$', 0xbf, false), 1);
 
         let output = vec_of_strings![ "xxx ", "xx  ", "x   ", "    " ];
         let fc = FIGchar::from_lines(&vec![ "   y", "  yy", " yyy", "yyyy" ]).unwrap();
-        assert_eq!(amount(&output, &fc, '$', 0xbf), 4);
+        assert_eq!(amount(&output, &fc, '$', 0xbf, false), 4);
 
         let output = vec_of_strings![  "xxxx ", "xxx  ", "xx   ", "x    " ];
         let fc = FIGchar::from_lines(&vec![ "   x", "  xx", " xxx", "xxxx" ]).unwrap();
-        assert_eq!(amount(&output, &fc, '$', 0xbf), 5);
+        assert_eq!(amount(&output, &fc, '$', 0xbf, false), 5);
     }
 
     #[test]
     fn test_amount_utf8() {
         let output = vec_of_strings![ "", "", "", "" ];
         let fc = FIGchar::from_lines(&vec![ "   ", "  á", " áá", "   " ]).unwrap();
-        assert_eq!(amount(&output, &fc, '$', 0xbf), 1);
+        assert_eq!(amount(&output, &fc, '$', 0xbf, false), 1);
 
         let output = vec_of_strings![ "ááá ", "áá  ", "á   ", "    " ];
         let fc = FIGchar::from_lines(&vec![ "   é", "  éé", " ééé", "éééé" ]).unwrap();
-        assert_eq!(amount(&output, &fc, '$', 0xbf), 4);
+        assert_eq!(amount(&output, &fc, '$', 0xbf, false), 4);
 
         let output = vec_of_strings![  "áááá ", "ááá  ", "áá   ", "á    " ];
         let fc = FIGchar::from_lines(&vec![ "   á", "  áá", " ááá", "áááá" ]).unwrap();
-        assert_eq!(amount(&output, &fc, '$', 0xbf), 5);
+        assert_eq!(amount(&output, &fc, '$', 0xbf, false), 5);
     }
 
     #[test]
@@ -265,5 +273,19 @@ mod tests {
         sm.push('B');
         let output = sm.get();
         assert!(output[0].chars().count() > 1);
+    }
+
+    // Smusher picks up right_to_left from font header
+    #[test]
+    fn test_smusher_right2left_from_font() {
+        let mut font = FIGfont::default();
+        font.height = 3;
+        font.right_to_left = false;
+        let sm = Smusher::new(&font);
+        assert!(!sm.right2left);
+
+        font.right_to_left = true;
+        let sm = Smusher::new(&font);
+        assert!(sm.right2left);
     }
 }

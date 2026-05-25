@@ -190,10 +190,8 @@ impl<'a> Wrapper<'a> {
 
 
 fn add_pad(v: &[String], pad_size: usize) -> Vec<String> {
-    fn pad(num: usize) -> String {
-        (0..num).map(|_| " ").collect::<String>()
-    }
-    v.iter().map(|x| pad(pad_size) + x).collect()
+    let p: String = (0..pad_size).map(|_| " ").collect();
+    v.iter().map(|x| p.clone() + x).collect()
 }
 
 #[cfg(test)]

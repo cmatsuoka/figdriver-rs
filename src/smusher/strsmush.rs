@@ -15,6 +15,45 @@ impl<'a> CharExt for &'a str {
     }
 }
 
+pub fn amount_rtl(s1: &str, s2: &str, hardblank: char, mode: u32) -> usize {
+    let mut v1 = s1.chars();
+    let mut v2 = s2.chars().rev();
+    let mut amt = 0;
+
+    let mut l = ' ';
+    if !s2.is_empty() {
+        l = v2.next().unwrap();
+        while l.is_whitespace() {
+            amt += 1;
+            let Some(next) = v2.next() else {
+                break;
+            };
+            l = next;
+        }
+    }
+
+    let mut r = ' ';
+    if !s1.is_empty() {
+        r = v1.next().unwrap();
+        while r.is_whitespace() {
+            amt += 1;
+            let Some(next) = v1.next() else {
+                break;
+            };
+            r = next;
+        }
+    }
+
+    if l == ' ' || r == ' ' {
+        return amt;
+    }
+
+    match charsmush::smush(l, r, hardblank, true, mode) {
+        Some(_) => { amt + 1},
+        None    => { amt },
+    }
+}
+
 // Compute the number of characters a string can be smushed into another string.
 pub fn amount(s1: &str, s2: &str, hardblank: char, mode: u32) -> usize {
 
@@ -104,6 +143,64 @@ pub fn smush(s1: &str, s2x: &str, mut amt: usize, hardblank: char, mode: u32) ->
     let m2 = m1 + l2;
     for _ in m2..l1 {
         res.push(v1.next().unwrap());
+    }
+
+    res
+}
+
+pub fn smush_rtl(s1: &str, s2x: &str, mut amt: usize, hardblank: char, mode: u32) -> String {
+    if s2x.is_empty() {
+        return s1.to_owned();
+    }
+
+    let s1_chars: Vec<char> = s1.chars().collect();
+    let s2_chars: Vec<char> = s2x.chars().collect();
+
+    let l1 = s1_chars.len();
+    let l2 = s2_chars.len();
+    let mut s1_start = 0;
+    let mut s2_start = 0;
+
+    if amt > l2 {
+        s1_start += amt - l2;
+    }
+
+    s1_start = s1_start.min(l1);
+
+    if amt > l1 - s1_start {
+        s2_start += amt - (l1 - s1_start);
+        amt = l1 - s1_start;
+    }
+
+    s2_start = s2_start.min(l2);
+    amt = amt.min(l2 - s2_start);
+
+    let mut res = String::new();
+    let m2 = l2 - s2_start - amt;
+
+    for &c in &s2_chars[s2_start..s2_start + m2] {
+        res.push(c);
+    }
+
+    let mut s1_idx = s1_start;
+    let overlap_end = s2_start + m2 + amt;
+    for s2_idx in s2_start + m2..overlap_end {
+        let r = s2_chars[s2_idx];
+        let l = if s1_idx < s1_chars.len() { s1_chars[s1_idx] } else { ' ' };
+        s1_idx += 1;
+        if l != ' ' && r != ' ' {
+  match charsmush::smush(r, l, hardblank, true, mode) {
+                Some(c) => res.push(c),
+                None    => res.push(r),
+            }
+        } else {
+            res.push(if l == ' ' { r } else { l });
+        }
+    }
+
+    let remaining_start = s1_start + amt;
+    for &c in &s1_chars[remaining_start..] {
+        res.push(c);
     }
 
     res
@@ -234,5 +331,95 @@ mod tests {
     #[test]
     fn test_smush_amt_zero() {
         assert_eq!(smush("abc", "xyz", 0, '$', 0xbf), "abcxyz".to_string());
+    }
+
+    #[test]
+    fn test_amount_rtl() {
+        assert_eq!(amount_rtl("", "", '$', 0xbf), 0);
+
+        // s2's trailing whitespace counted from right; s1 empty → r=' ' → early return with whitespace count
+        assert_eq!(amount_rtl("", "    ", '$', 0xbf), 4);
+        assert_eq!(amount_rtl("", "   y", '$', 0xbf), 0);
+
+        // s2 empty → l=' ' → early return with s1's leading whitespace count
+        assert_eq!(amount_rtl("    ", "", '$', 0xbf), 4);
+        assert_eq!(amount_rtl("x   ", "", '$', 0xbf), 0);
+
+        assert_eq!(amount_rtl("    ", "    ", '$', 0xbf), 8);
+        assert_eq!(amount_rtl("x   ", "    ", '$', 0xbf), 4);
+        assert_eq!(amount_rtl("xx  ", "    ", '$', 0xbf), 4);
+        assert_eq!(amount_rtl("xxx ", "    ", '$', 0xbf), 4);
+        assert_eq!(amount_rtl("xxxx", "    ", '$', 0xbf), 4);
+
+        assert_eq!(amount_rtl("    ", "   y", '$', 0xbf), 4);
+        assert_eq!(amount_rtl("x   ", "   y", '$', 0xbf), 0);
+        assert_eq!(amount_rtl("xx  ", "   y", '$', 0xbf), 0);
+        assert_eq!(amount_rtl("xxx ", "   y", '$', 0xbf), 0);
+        assert_eq!(amount_rtl("xxxx", "   y", '$', 0xbf), 0);
+
+        assert_eq!(amount_rtl("x", "y", '$', 0xbf), 0);
+        assert_eq!(amount_rtl("x", "x", '$', 0xbf), 1);
+        assert_eq!(amount_rtl("<", ">", '$', 0xbf), 1);
+        assert_eq!(amount_rtl("_", "/", '$', 0xbf), 1);
+        assert_eq!(amount_rtl("/", "_", '$', 0xbf), 1);
+        assert_eq!(amount_rtl("[", "{", '$', 0xbf), 1);
+        assert_eq!(amount_rtl("[", "]", '$', 0xbf), 1);
+        assert_eq!(amount_rtl(">", "<", '$', 0xbf), 0);
+    }
+
+    #[test]
+    fn test_amount_rtl_utf8() {
+        assert_eq!(amount_rtl("á   ", "    ", '$', 0xbf), 4);
+        assert_eq!(amount_rtl("áá  ", "    ", '$', 0xbf), 4);
+        assert_eq!(amount_rtl("á   ", "é   ", '$', 0xbf), 3);
+        assert_eq!(amount_rtl("áá  ", "é   ", '$', 0xbf), 3);
+        assert_eq!(amount_rtl("á   ", "éé  ", '$', 0xbf), 2);
+        assert_eq!(amount_rtl("áá  ", "éé  ", '$', 0xbf), 2);
+    }
+
+    #[test]
+    fn test_smush_rtl() {
+        assert_eq!(smush_rtl("123! ", "xy", 1, '$', 0xbf), "xy23! ".to_string());
+        assert_eq!(smush_rtl("123> ", "<y", 2, '$', 0xbf), "<y3> ".to_string());
+        assert_eq!(smush_rtl("123! ", "   xy", 5, '$', 0xbf), "123xy".to_string());
+        assert_eq!(smush_rtl("123/ ", "   /y", 5, '$', 0xbf), "123/y".to_string());
+        assert_eq!(smush_rtl("", "   y", 3, '$', 0xbf), "y".to_string());
+        assert_eq!(smush_rtl("", "      ", 1, '$', 0xbf), "     ".to_string());
+    }
+
+    #[test]
+    fn test_smush_rtl_utf8() {
+        assert_eq!(smush_rtl("áéí! ", "óú", 1, '$', 0xbf), "óúéí! ".to_string());
+        assert_eq!(smush_rtl("", "   á", 3, '$', 0xbf), "á".to_string());
+    }
+
+    #[test]
+    fn test_smush_rtl_s2_longer_than_s1() {
+        assert_eq!(smush_rtl("ab", "xxxxxxxxxx", 8, '$', 0xbf), "xxxx".to_string());
+        assert_eq!(smush_rtl("a", "bbbbbbbbbb", 5, '$', 0xbf), "bbbbbb".to_string());
+        assert_eq!(smush_rtl("áé", "óúóúóúóúóúóú", 6, '$', 0xbf), "óúóúóúóú".to_string());
+    }
+
+    #[test]
+    fn test_smush_rtl_both_empty() {
+        assert_eq!(smush_rtl("", "", 0, '$', 0xbf), "".to_string());
+    }
+
+    #[test]
+    fn test_smush_rtl_s1_empty() {
+        assert_eq!(smush_rtl("", "abc", 0, '$', 0xbf), "abc".to_string());
+        assert_eq!(smush_rtl("", "abc", 1, '$', 0xbf), "bc".to_string());
+        assert_eq!(smush_rtl("", "   ", 0, '$', 0xbf), "   ".to_string());
+    }
+
+    #[test]
+    fn test_smush_rtl_amt_exceeds_both() {
+        assert_eq!(smush_rtl("   ", "   ", 6, '$', 0xbf), "".to_string());
+        assert_eq!(smush_rtl("ab", "cd", 10, '$', 0xbf), "".to_string());
+    }
+
+    #[test]
+    fn test_smush_rtl_amt_zero() {
+        assert_eq!(smush_rtl("abc", "xyz", 0, '$', 0xbf), "xyzabc".to_string());
     }
 }

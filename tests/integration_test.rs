@@ -136,3 +136,16 @@ fn utf8_input() {
                               r"/_/   \_\___\__,_|\___/(_)  \___/ _____ \___/  ",
                               r"         )_)                     |_____|       "]);
 }
+
+#[test]
+fn right_to_left() {
+    new_smusher!(sm, "fonts/small.flf");
+    sm.right2left = true;
+    let mut wr = figdriver::Wrapper::new(sm, 60);
+    wr.align = figdriver::Align::Right;
+    assert!(!wr.push_str("ABC").is_err());
+    let output = wr.get();
+    // RTL + right-aligned: content is right-aligned with left padding
+    assert_eq!(output[0].len(), 60);
+    assert!(output[0].ends_with("___ ___   _   "));
+}
