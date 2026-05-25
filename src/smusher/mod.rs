@@ -103,11 +103,7 @@ impl<'a> Smusher<'a> {
 fn amount(output: &[String], c: &FIGchar, hardblank: char, mode: u32, right2left: bool) -> usize {
     let mut amt = 9999;
     for (line, cline) in output.iter().zip(c.get()) {
-        if right2left {
-            amt = min(amt, strsmush::amount_rtl(line, cline, hardblank, mode));
-        } else {
-            amt = min(amt, strsmush::amount(line, cline, hardblank, mode));
-        }
+        amt = min(amt, strsmush::amount(line, cline, hardblank, mode, right2left));
     }
     amt
 }
