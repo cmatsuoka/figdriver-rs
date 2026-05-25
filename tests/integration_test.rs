@@ -21,7 +21,7 @@ fn line_full() {
     assert!(!wr.push_str("is").is_err());
     assert!(!wr.push_str(" ").is_err());
     assert!(wr.push_str("a").is_err());
-    assert_eq!(wr.get(), vec!["this is "]);
+    assert_eq!(wr.get(), vec!["this is"]);
 }
 
 #[test]
