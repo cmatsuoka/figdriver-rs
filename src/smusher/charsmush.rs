@@ -99,10 +99,8 @@ pub fn smush(l: char, r: char, hardblank: char, right2left: bool, mode: u32) -> 
 // Two sub-characters are smushed into a single sub-character if they are the same (except
 // hardblanks). 
 fn rule_1(l: char, r: char, mode: u32) -> Option<char> {
-    if mode & figfont::SMUSH_EQUAL != 0 {
-        if l == r {
-            return Some(l)
-        }
+    if mode & figfont::SMUSH_EQUAL != 0 && l == r {
+        return Some(l)
     }
 
     None

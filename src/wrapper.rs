@@ -122,7 +122,7 @@ impl<'a> Wrapper<'a> {
     /// If adding the string results in a line wider than the maximum number of columns,
     /// the string is not added to the output buffer and a LineFull error is returned.
     pub fn push_str(&mut self, s: &str) -> Result<(), Error> {
-        self.sm.push_str(s);
+        let rendered = self.sm.push_str(s);
 
         if self.sm.len() > self.width {
             self.sm.clear();
@@ -130,7 +130,7 @@ impl<'a> Wrapper<'a> {
             return Err(Error::LineFull)
         }
 
-        self.buffer.push_str(s);
+        self.buffer.push_str(&rendered);
         Ok(())
     }
 
@@ -141,7 +141,7 @@ impl<'a> Wrapper<'a> {
     /// If adding the character results in a line wider than the maximum number of columns,
     /// the character is not added to the output buffer and a LineFull error is returned.
     pub fn push(&mut self, ch: char) -> Result<(), Error> {
-        self.sm.push(ch);
+        let rendered = self.sm.push(ch);
 
         if self.sm.len() > self.width {
             self.sm.clear();
@@ -149,7 +149,9 @@ impl<'a> Wrapper<'a> {
             return Err(Error::LineFull)
         }
 
-        self.buffer.push(ch);
+        if rendered {
+            self.buffer.push(ch);
+        }
         Ok(())
     }
 
@@ -216,8 +218,9 @@ impl<'a> Wrapper<'a> {
                     self.clear();
                     self.just_flushed = true;
                 }
-                self.sm.push(c);
-                self.buffer.push(c);
+                if self.sm.push(c) {
+                    self.buffer.push(c);
+                }
             }
         }
     }

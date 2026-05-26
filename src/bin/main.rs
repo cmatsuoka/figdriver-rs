@@ -63,7 +63,16 @@ fn main() -> Result<(), Error> {
         .collect::<Vec<_>>()
         .join(" ");
 
-    run(&fontpath, &msg, use_kern, use_overlap, use_full_width, use_center, use_right, use_right_to_left, width, use_paragraph)
+    run(&fontpath, &msg, &RunConfig {
+            kern: use_kern,
+            overlap: use_overlap,
+            full_width: use_full_width,
+            center: use_center,
+            right: use_right,
+            right_to_left: use_right_to_left,
+            width,
+            paragraph: use_paragraph,
+        })
 }
 
 fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
@@ -83,46 +92,56 @@ fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
     PathBuf::from(name)
 }
 
-fn run(path: &Path, msg: &str, use_kern: bool, use_overlap: bool, use_full_width: bool,
-       use_center: bool, use_right: bool, use_right_to_left: bool, width: usize, use_paragraph: bool) -> Result<(), Error> {
+struct RunConfig {
+    kern: bool,
+    overlap: bool,
+    full_width: bool,
+    center: bool,
+    right: bool,
+    right_to_left: bool,
+    width: usize,
+    paragraph: bool,
+}
+
+fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     if !path.exists() {
         return Err(Error::FontNotFound(path.to_path_buf()));
     }
-    
+
     let font = figdriver::FIGfont::from_path(path)?;
     let mut sm = figdriver::Smusher::new(&font);
 
-    if use_overlap {
+    if cfg.overlap {
         sm.mode = 0;
-    } else if use_kern {
+    } else if cfg.kern {
         sm.mode = figdriver::SMUSH_KERN;
     }
 
-    if use_full_width {
+    if cfg.full_width {
         sm.full_width = true;
     }
 
-    if use_right_to_left {
+    if cfg.right_to_left {
         sm.right2left = true;
     }
 
     // Subtract 1 from width to match figlet's quirk: figlet treats `-w N` as
     // "allow lines up to N-1 characters" rather than N characters.
-    let mut wr = figdriver::Wrapper::new(sm, width - 1);
+    let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1);
 
-    if use_center {
+    if cfg.center {
         wr.align = figdriver::Align::Center;
-    } else if use_right || use_right_to_left {
+    } else if cfg.right || cfg.right_to_left {
         wr.align = figdriver::Align::Right;
     }
 
     let re = Regex::new(r"(\S+|\s+)").unwrap();
 
     if !msg.is_empty() {
-        write_line(&mut wr, &msg, &re);
+        write_line(&mut wr, msg, &re);
     } else {
         let input = io::BufReader::new(io::stdin());
-        if use_paragraph {
+        if cfg.paragraph {
             for line in input.lines() {
                 let line = line?;
                 write_paragraph(&mut wr, &line, &re);
