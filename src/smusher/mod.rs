@@ -83,8 +83,9 @@ impl<'a> Smusher<'a> {
     /// Add a character to the output buffer, applying the smushing rules specified in the font
     /// layout.
     pub fn push(&mut self, ch: char) {
-        let fc = self.font.get(ch);
-        self.output = smush(&self.output, fc, self.font.hardblank, self.full_width, self.mode, self.right2left);
+        if let Some(fc) = self.font.get(ch) {
+            self.output = smush(&self.output, fc, self.font.hardblank, self.full_width, self.mode, self.right2left);
+        }
     }
 
     /// Obtain the size, in sub-characters, of any line of the output buffer.

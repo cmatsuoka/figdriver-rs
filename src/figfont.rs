@@ -47,11 +47,18 @@ impl FIGfont {
     }
 
     /// Obtain the FIGchar in this font for the given char.
-    pub fn get(&self, ch: char) -> &FIGchar {
+    ///
+    /// Returns `None` if neither the character nor its fallback ('\0' code)
+    /// is defined in the font, per spec: "If there is no FIGcharacter 0,
+    /// nothing will be printed."
+    pub fn get(&self, ch: char) -> Option<&FIGchar> {
         let code = ch as i32;
         match self.chars.get(&code) {
-            Some(k) => k,
-            None    => self.get( if ch == '\t' { ' ' } else { '\0' }),
+            Some(k) => Some(k),
+            None => {
+                let fallback = if ch == '\t' { ' ' } else { '\0' };
+                self.chars.get(&(fallback as i32))
+            }
         }
     } 
 
@@ -70,9 +77,6 @@ impl FIGfont {
             line.clear();
             f.read_line(&mut line)?;
         }
-
-        // Define default 0-code character
-        self.chars.insert(0, FIGchar::with_lines(self.height));
 
         // Load required characters
         for i in (32..127).chain(vec![196, 214, 220, 228, 246, 252, 223]) {
@@ -210,14 +214,6 @@ impl FIGchar {
         &self.lines
     }
 
-    fn with_lines(num: usize) -> Self {
-        let mut c = Self::new();
-        for _ in 0..num {
-            c.lines.push(String::new());
-        }
-        c
-    }
-
     fn load<R: BufRead>(&mut self, f: &mut R, height: usize) -> Result<&Self, Error> {
         let mut line = String::new();
         for i in 0..height {
@@ -292,7 +288,7 @@ mod tests {
         let font = FIGfont::from_path(&path).unwrap();
 
     let ch = ' ';
-        assert_eq!(font.get(ch).get(), &[
+        assert_eq!(font.get(ch).unwrap().get(), &[
             " $".to_string(),
             " $".to_string(),
             " $".to_string(),
@@ -302,7 +298,7 @@ mod tests {
         ]);
 
        let ch = 'A';
-        assert_eq!(font.get(ch).get(), &[
+        assert_eq!(font.get(ch).unwrap().get(), &[
             r"     _    ".to_string(),
             r"    / \   ".to_string(),
             r"   / _ \  ".to_string(),
@@ -312,7 +308,7 @@ mod tests {
         ]);
 
         let ch = char::from_u32(223).unwrap();
-        assert_eq!(font.get(ch).get(), &[
+        assert_eq!(font.get(ch).unwrap().get(), &[
             r"   ___ ".to_string(),
             r"  / _ \".to_string(),
             r" | |/ /".to_string(),
@@ -322,7 +318,7 @@ mod tests {
         ]);
 
         let ch = char::from_u32(3232).unwrap();
-        assert_eq!(font.get(ch).get(), &[
+        assert_eq!(font.get(ch).unwrap().get(), &[
             r"   _____)".to_string(),
             r"  /_ ___/".to_string(),
             r"  / _ \  ".to_string(),
@@ -338,7 +334,7 @@ mod tests {
         let font = FIGfont::from_path(&path).unwrap();
 
     let ch = '\t';
-        assert_eq!(font.get(ch).get(), &[
+        assert_eq!(font.get(ch).unwrap().get(), &[
             " $".to_string(),
             " $".to_string(),
             " $".to_string(),
@@ -371,26 +367,33 @@ mod tests {
         assert_eq!(format!("{}", c), "");
     }
 
-    // get('\0') returns a character with height empty lines
+    // get('\0') returns None when font does not define FIGcharacter 0
+    // Per spec: "If there is no FIGcharacter 0, nothing will be printed."
     #[test]
-    fn test_font_get_fallback_null() {
+    fn test_font_get_missing_null() {
         let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
         let font = FIGfont::from_path(&path).unwrap();
-        let null_char = font.get('\0');
-        assert!(null_char.get().len() == font.height);
-        for line in null_char.get() {
-            assert!(line.is_empty());
-        }
+        assert!(font.get('\0').is_none());
     }
 
-    // get() for unknown codepoint returns same fallback as '\0'
+    // get() for unknown codepoint returns None when code 0 is not defined
     #[test]
-    fn test_font_get_unknown_char_fallback() {
+    fn test_font_get_unknown_char_none() {
         let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
         let font = FIGfont::from_path(&path).unwrap();
-        let unknown = font.get('\u{1F600}');
-        let null_char = font.get('\0');
-        assert_eq!(unknown.get(), null_char.get());
+        assert!(font.get('\u{1F600}').is_none());
+    }
+
+    // Tab falls back to space character
+    #[test]
+    fn test_font_get_tab_fallback() {
+        let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
+        let font = FIGfont::from_path(&path).unwrap();
+        let space = font.get(' ');
+        let tab = font.get('\t');
+        assert!(space.is_some());
+        assert!(tab.is_some());
+        assert_eq!(space.unwrap().get(), tab.unwrap().get());
     }
 
     // Loaded font exposes correct height, hardblank, and layout values
