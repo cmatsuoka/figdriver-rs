@@ -74,17 +74,31 @@ impl<'a> Smusher<'a> {
 
     /// Add a string to the output buffer, applying the smushing rules specified in the font
     /// layout.
-    pub fn push_str(&mut self, s: &str) {
+    ///
+    /// Returns the subset of characters that were actually rendered (characters missing
+    /// from the font are omitted).
+    pub fn push_str(&mut self, s: &str) -> String {
+        let mut rendered = String::new();
         for x in s.chars() {
-            self.push(x);
+            if self.push(x) {
+                rendered.push(x);
+            }
         }
+        rendered
     }
 
     /// Add a character to the output buffer, applying the smushing rules specified in the font
     /// layout.
-    pub fn push(&mut self, ch: char) {
-        let fc = self.font.get(ch);
-        self.output = smush(&self.output, fc, self.font.hardblank, self.full_width, self.mode, self.right2left);
+    ///
+    /// Returns `true` if the character was rendered, `false` if it was missing from the font
+    /// and skipped.
+    pub fn push(&mut self, ch: char) -> bool {
+        if let Some(fc) = self.font.get(ch) {
+            self.output = smush(&self.output, fc, self.font.hardblank, self.full_width, self.mode, self.right2left);
+            true
+        } else {
+            false
+        }
     }
 
     /// Obtain the size, in sub-characters, of any line of the output buffer.
@@ -110,7 +124,7 @@ fn amount(output: &[String], c: &FIGchar, hardblank: char, mode: u32, right2left
 
 fn trim(output: &[String], width: usize) -> Vec<String> {
     output.iter().map(|line| {
-        let s: &str = &line;
+        let s: &str = line;
         let len = s.chars().count();
         let index = s.char_indices().nth(width.min(len)).map(|(i, _)| i).unwrap_or(s.len());
         s[..index].to_string()
@@ -121,7 +135,7 @@ fn smush(output: &[String], c: &FIGchar, hardblank: char, full_width: bool, mode
 
     let amt = match full_width {
         true  => 0,
-        false => amount(&output, c, hardblank, mode, right2left),
+        false => amount(output, c, hardblank, mode, right2left),
     };
 
     let mut res = Vec::new();
@@ -283,5 +297,22 @@ mod tests {
         font.right_to_left = true;
         let sm = Smusher::new(&font);
         assert!(sm.right2left);
+    }
+
+    // Rendering a string with a missing character produces the same output as
+    // rendering the string with that character removed.
+    #[test]
+    fn test_smusher_skips_missing_char() {
+        let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
+
+        let mut sm_with_unknown = Smusher::new(&font);
+        sm_with_unknown.push_str("A\u{1F600}B");
+        let output_with_unknown = sm_with_unknown.get();
+
+        let mut sm_without_unknown = Smusher::new(&font);
+        sm_without_unknown.push_str("AB");
+        let output_without_unknown = sm_without_unknown.get();
+
+        assert_eq!(output_with_unknown, output_without_unknown);
     }
 }

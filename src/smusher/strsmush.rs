@@ -5,7 +5,7 @@ trait CharExt {
     fn char_index(&self, _: usize) -> usize;
 }
 
-impl<'a> CharExt for &'a str {
+impl CharExt for &str {
     fn char_len(&self) -> usize {
         self.chars().count()
     }
@@ -81,10 +81,7 @@ pub fn smush(s1: &str, s2x: &str, mut amt: usize, hardblank: char, mode: u32) ->
     // part 2: s1 and s2 overlap
     let mut v2 = s2.chars();
     for _ in 0..l2 {
-        let l = match v1.next() {
-            Some(v) => v,
-            None    => ' ',
-        };
+        let l = v1.next().unwrap_or(' ');
         let r = v2.next().unwrap();
         if l != ' ' && r != ' ' {
             match charsmush::smush(l, r, hardblank, false, mode) {
@@ -140,12 +137,10 @@ pub fn smush_rtl(s1: &str, s2x: &str, mut amt: usize, hardblank: char, mode: u32
         res.push(c);
     }
 
-    let mut s1_idx = s1_start;
     let overlap_end = s2_start + m2 + amt;
-    for s2_idx in s2_start + m2..overlap_end {
+    for (s1_idx, s2_idx) in (s1_start..).zip(s2_start + m2..overlap_end) {
         let r = s2_chars[s2_idx];
         let l = if s1_idx < s1_chars.len() { s1_chars[s1_idx] } else { ' ' };
-        s1_idx += 1;
         if l != ' ' && r != ' ' {
   match charsmush::smush(r, l, hardblank, true, mode) {
                 Some(c) => res.push(c),
