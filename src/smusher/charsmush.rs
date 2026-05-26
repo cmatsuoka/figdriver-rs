@@ -60,13 +60,11 @@ pub fn smush(l: char, r: char, hardblank: char, right2left: bool, mode: u32) -> 
     // produces an "overlapping" effect with some FIGfonts, wherin the latter
     // FIGcharacter may appear to be "in front".
     if mode == 0 {
-        // Ensure overlapping preference to visible characters
-        //cmp_return_other!(hardblank, l, r);
-
-        // Use this instead of the line above to conserve spacing between words.
-        if l == hardblank || r == hardblank {
-            return None
+        // Hardblanks are always overridden by visible characters (spec line 387-397)
+        if l == hardblank && r == hardblank {
+            return None;
         }
+        cmp_return_other!(hardblank, l, r);
 
         // Ensures that the dominant (foreground) fig-character for overlapping is
         // the latter in the user's text, not necessarily the rightmost character
@@ -253,8 +251,8 @@ mod tests {
     #[test]
     fn test_smush_mode_0() {
         assert_eq!(smush('x', 'y', '$', false, 0), Some('y'));
-        assert_eq!(smush('x', '$', '$', false, 0), None);
-        assert_eq!(smush('$', 'x', '$', false, 0), None);
+        assert_eq!(smush('x', '$', '$', false, 0), Some('x'));
+        assert_eq!(smush('$', 'x', '$', false, 0), Some('x'));
         assert_eq!(smush('$', '$', '$', false, 0), None);
         assert_eq!(smush('a', 'a', '$', false, 0), Some('a'));
         assert_eq!(smush(' ', 'x', '$', false, 0), Some('x'));
