@@ -168,8 +168,10 @@ impl<'a> Wrapper<'a> {
         // Handle explicit newlines per spec (figfont.txt lines 1617-1621):
         // When input contains newlines, flush the current buffer as a complete line
         // and continue wrapping subsequent text on a new line.
-        if s.contains('\n') {
-            let segments: Vec<&str> = s.split('\n').collect();
+        // Normalize CRLF and bare CR to LF for cross-platform compatibility.
+        let normalized = s.replace("\r\n", "\n").replace("\r", "\n");
+        if normalized.contains('\n') {
+            let segments: Vec<&str> = normalized.split('\n').collect();
             let num_segments = segments.len();
 
             for (i, segment) in segments.iter().enumerate() {
@@ -347,5 +349,25 @@ mod tests {
 
         let remaining = wr.get();
         assert!(remaining[0].starts_with("  "), "leading whitespace after newline should be preserved");
+    }
+
+    #[test]
+    fn test_crlf_and_bare_cr_handled_as_newlines() {
+        use std::cell::RefCell;
+        let font = test_font().unwrap();
+
+        // CRLF
+        let sm = Smusher::new(&font);
+        let mut wr = Wrapper::new(sm, 80);
+        let flushed = RefCell::new(Vec::new());
+        wr.wrap_str("hello\r\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
+        assert_eq!(flushed.borrow().len(), 1, "CRLF should flush the first line");
+
+        // Bare CR
+        let sm = Smusher::new(&font);
+        let mut wr = Wrapper::new(sm, 80);
+        let flushed = RefCell::new(Vec::new());
+        wr.wrap_str("hello\rworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
+        assert_eq!(flushed.borrow().len(), 1, "bare CR should flush the first line");
     }
 }
