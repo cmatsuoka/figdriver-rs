@@ -26,7 +26,8 @@ fn main() -> Result<(), Error> {
   -p, --paragraph       ignore mid-paragraph line breaks
   -R, --right-to-left   enable right-to-left print direction
   -r, --right           right-align the output
-  -S, --smush           use smushing mode to display characters
+  -s, --smush-default   smushing respecting font default layout mode
+  -S, --smush           force smushing mode to display characters
   -W, --full-width      display characters in full width
   -w, --width <cols>    set the output width");
         return Ok(());
@@ -46,6 +47,8 @@ fn main() -> Result<(), Error> {
     let use_center = pargs.contains(["-c", "--center"]);
     let use_right_to_left = pargs.contains(["-R", "--right-to-left"]);
     let use_right = pargs.contains(["-r", "--right"]);
+    let use_smush = pargs.contains(["-s", "--smush-default"]);
+    let use_smush_force = pargs.contains(["-S", "--smush"]);
 
     let width: usize = pargs.opt_value_from_str::<_, usize>(["-w", "--width"])
         .map_err(|e| Error::Cli(e.to_string()))?
@@ -72,6 +75,8 @@ fn main() -> Result<(), Error> {
             right_to_left: use_right_to_left,
             width,
             paragraph: use_paragraph,
+            smush: use_smush,
+            smush_force: use_smush_force,
         })
 }
 
@@ -101,6 +106,8 @@ struct RunConfig {
     right_to_left: bool,
     width: usize,
     paragraph: bool,
+    smush: bool,
+    smush_force: bool,
 }
 
 fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
@@ -111,13 +118,23 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     let font = figdriver::FIGfont::from_path(path)?;
     let mut sm = figdriver::Smusher::new(&font);
 
-    if cfg.overlap {
+    if cfg.smush_force {
+        if (font.layout & figdriver::SMUSH_ENABLE) != 0 {
+            sm.mode = font.layout;
+        } else {
+            sm.mode = 0;
+        }
+        sm.full_width = false;
+    } else if cfg.smush && (font.layout & figdriver::SMUSH_ENABLE) != 0 {
+        sm.mode = font.layout;
+        sm.full_width = false;
+    } else if cfg.overlap {
         sm.mode = 0;
     } else if cfg.kern {
         sm.mode = figdriver::SMUSH_KERN;
     }
 
-    if cfg.full_width {
+    if cfg.full_width && !cfg.smush && !cfg.smush_force {
         sm.full_width = true;
     }
 
