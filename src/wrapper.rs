@@ -370,4 +370,38 @@ mod tests {
         wr.wrap_str("hello\rworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
         assert_eq!(flushed.borrow().len(), 1, "bare CR should flush the first line");
     }
+
+    #[test]
+    fn test_leading_newline_no_blank_line() {
+        use std::cell::RefCell;
+        let font = test_font().unwrap();
+        let sm = Smusher::new(&font);
+        let mut wr = Wrapper::new(sm, 80);
+        let flushed = RefCell::new(Vec::new());
+
+        wr.wrap_str("\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
+
+        let flushed = flushed.borrow();
+        assert_eq!(flushed.len(), 0, "leading newline should not flush blank line");
+
+        let remaining = wr.get();
+        assert!(!remaining[0].is_empty(), "remaining buffer should contain rendered world");
+    }
+
+    #[test]
+    fn test_trailing_newline_no_blank_line() {
+        use std::cell::RefCell;
+        let font = test_font().unwrap();
+        let sm = Smusher::new(&font);
+        let mut wr = Wrapper::new(sm, 80);
+        let flushed = RefCell::new(Vec::new());
+
+        wr.wrap_str("hello\n", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
+
+        let flushed = flushed.borrow();
+        assert_eq!(flushed.len(), 1, "trailing newline should flush the content line once");
+        assert!(!flushed[0][0].is_empty(), "flushed line should contain rendered content");
+
+        assert!(wr.is_empty(), "buffer should be empty after trailing newline");
+    }
 }
