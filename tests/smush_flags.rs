@@ -2,11 +2,13 @@ use std::process::Command;
 
 fn figlet_cmd() -> Command {
     let binary = env!("CARGO_BIN_EXE_figlet");
-    Command::new(binary)
+    let mut cmd = Command::new(binary);
+    cmd.arg("-d").arg("fonts");
+    cmd
 }
 
-fn run(figlet_cmd: &mut Command) -> Vec<String> {
-    let output = figlet_cmd.output().unwrap();
+fn run(cmd: &mut Command) -> Vec<String> {
+    let output = cmd.output().unwrap();
     String::from_utf8_lossy(&output.stdout)
         .lines()
         .map(|line| line.trim_end().to_string())
