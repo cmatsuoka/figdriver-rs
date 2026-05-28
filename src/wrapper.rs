@@ -178,13 +178,11 @@ impl<'a> Wrapper<'a> {
                     if !self.is_empty() {
                         flush(&self.get());
                         self.clear();
-                        self.just_flushed = false;
                     }
                     // Consecutive newlines produce blank lines
                     if segment.is_empty() && i < num_segments - 1 {
                         flush(&self.get());
                         self.clear();
-                        self.just_flushed = false;
                     }
                 }
 
