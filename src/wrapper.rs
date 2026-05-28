@@ -161,7 +161,47 @@ impl<'a> Wrapper<'a> {
     /// buffer contents (if any) will be passed to the flush callback, the buffer will be
     /// cleared, and the new string will be added to the buffer. If the string is wider
     /// than the output buffer, it will be wrapped at character level.
+    ///
+    /// Explicit newline characters ('\n') in the input force a flush of the current
+    /// buffer, starting a new output line (figfont.txt lines 1617-1621).
     pub fn wrap_str(&mut self, s: &str, flush: &dyn Fn(&[String])) {
+        // Handle explicit newlines per spec (figfont.txt lines 1617-1621):
+        // When input contains newlines, flush the current buffer as a complete line
+        // and continue wrapping subsequent text on a new line.
+        if s.contains('\n') {
+            let segments: Vec<&str> = s.split('\n').collect();
+            let num_segments = segments.len();
+
+            for (i, segment) in segments.iter().enumerate() {
+                if i > 0 {
+                    // Flush current buffer as a complete line after newline
+                    if !self.is_empty() {
+                        flush(&self.get());
+                        self.clear();
+                        self.just_flushed = false;
+                    }
+                    // Consecutive newlines produce blank lines
+                    if segment.is_empty() && i < num_segments - 1 {
+                        flush(&self.get());
+                        self.clear();
+                        self.just_flushed = false;
+                    }
+                }
+
+                if segment.is_empty() {
+                    continue;
+                }
+
+                self.wrap_segment(segment, flush);
+            }
+            return;
+        }
+
+        self.wrap_segment(s, flush);
+    }
+
+    /// Internal wrapper logic for a single segment (no newlines).
+    fn wrap_segment(&mut self, s: &str, flush: &dyn Fn(&[String])) {
         let empty = s.trim().is_empty();
 
         // Handle whitespace tokens per spec (figfont.txt lines 1623-1633):
@@ -234,9 +274,14 @@ fn add_pad(v: &[String], pad_size: usize) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::FIGfont;
 
     macro_rules! vec_string {
         ( $($x:expr),* ) => (vec![$($x.to_string()),*])
+    }
+
+    fn test_font() -> Result<FIGfont, Error> {
+        FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/small.flf")
     }
 
     #[test]
@@ -249,5 +294,60 @@ mod tests {
     fn test_padding_utf8() {
         assert_eq!(add_pad(&vec_string!("á", "á"), 0), vec_string!("á", "á"));
         assert_eq!(add_pad(&vec_string!("á", "á"), 4), vec_string!("    á", "    á"));
+    }
+
+    #[test]
+    fn test_newline_splits_lines() {
+        use std::cell::RefCell;
+        let font = test_font().unwrap();
+        let sm = Smusher::new(&font);
+        let mut wr = Wrapper::new(sm, 80);
+        let flushed = RefCell::new(Vec::new());
+
+        wr.wrap_str("hello\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
+
+        let flushed = flushed.borrow();
+        assert_eq!(flushed.len(), 1, "newline should flush the first line");
+        assert!(!flushed[0][0].is_empty(), "flushed line should contain rendered content");
+
+        let remaining = wr.get();
+        assert!(!remaining[0].is_empty(), "remaining buffer should contain rendered world");
+    }
+
+    #[test]
+    fn test_consecutive_newlines_produce_blank_lines() {
+        use std::cell::RefCell;
+        let font = test_font().unwrap();
+        let sm = Smusher::new(&font);
+        let mut wr = Wrapper::new(sm, 80);
+        let flushed = RefCell::new(Vec::new());
+
+        wr.wrap_str("hello\n\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
+
+        let flushed = flushed.borrow();
+        assert_eq!(flushed.len(), 2, "consecutive newlines should flush content and blank line");
+        assert!(!flushed[0][0].is_empty(), "first flush should contain rendered content");
+        assert!(flushed[1][0].is_empty(), "second flush should be blank line");
+
+        let remaining = wr.get();
+        assert!(!remaining[0].is_empty(), "remaining buffer should contain rendered world");
+    }
+
+    #[test]
+    fn test_leading_whitespace_after_newline_preserved() {
+        use std::cell::RefCell;
+        let font = test_font().unwrap();
+        let sm = Smusher::new(&font);
+        let mut wr = Wrapper::new(sm, 80);
+        let flushed = RefCell::new(Vec::new());
+
+        wr.wrap_str("hello\n  world", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
+
+        let flushed = flushed.borrow();
+        assert_eq!(flushed.len(), 1, "should flush the first line");
+        assert!(!flushed[0][0].is_empty(), "flushed line should contain rendered content");
+
+        let remaining = wr.get();
+        assert!(remaining[0].starts_with("  "), "leading whitespace after newline should be preserved");
     }
 }
