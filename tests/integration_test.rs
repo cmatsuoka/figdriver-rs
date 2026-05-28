@@ -234,3 +234,85 @@ fn blank_after_wrap_discarded() {
     [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
     assert_eq!(wr.get(), vec!["test"]);
 }
+
+#[test]
+fn smush_force_with_enable_uses_font_layout() {
+    // -S on a font with SMUSH_ENABLE sets mode to font.layout
+    let path = env!("CARGO_MANIFEST_DIR").to_owned() + &path::MAIN_SEPARATOR.to_string() + "fonts/small.flf";
+    let font = figdriver::FIGfont::from_path(path).unwrap();
+    assert!((font.layout & figdriver::SMUSH_ENABLE) != 0);
+    let mut sm = figdriver::Smusher::new(&font);
+    sm.mode = font.layout;
+    sm.full_width = false;
+    let mut wr = figdriver::Wrapper::new(sm, 60);
+    assert!(!wr.push_str("Smushy").is_err());
+    let output = wr.get();
+    assert_eq!(output, vec![r" ___              _        ",
+                            r"/ __|_ __ _  _ __| |_ _  _ ",
+                            r"\__ \ '  \ || (_-< ' \ || |",
+                            r"|___/_|_|_\_,_/__/_||_\_, |",
+                            r"                      |__/ "]);
+}
+
+#[test]
+fn smush_force_without_enable_falls_back_to_overlap() {
+    // -S on a font without SMUSH_ENABLE (banner, layout=64) falls back to overlap mode 0
+    let path = env!("CARGO_MANIFEST_DIR").to_owned() + &path::MAIN_SEPARATOR.to_string() + "fonts/banner.flf";
+    let font = figdriver::FIGfont::from_path(path).unwrap();
+    assert!((font.layout & figdriver::SMUSH_ENABLE) == 0);
+    let mut sm = figdriver::Smusher::new(&font);
+    sm.mode = 0;
+    sm.full_width = false;
+    let mut wr = figdriver::Wrapper::new(sm, 60);
+    assert!(!wr.push_str("Hi").is_err());
+    let output = wr.get();
+    assert!(!output[0].is_empty());
+    let smushed_width = output[0].chars().count();
+    let mut sm_full = figdriver::Smusher::new(&font);
+    sm_full.full_width = true;
+    let mut wr_full = figdriver::Wrapper::new(sm_full, 60);
+    assert!(!wr_full.push_str("Hi").is_err());
+    let full_width = wr_full.get()[0].chars().count();
+    assert!(smushed_width < full_width);
+}
+
+#[test]
+fn smush_force_overrides_full_width() {
+    // -S should disable full_width mode
+    let path = env!("CARGO_MANIFEST_DIR").to_owned() + &path::MAIN_SEPARATOR.to_string() + "fonts/small.flf";
+    let font = figdriver::FIGfont::from_path(path).unwrap();
+    let mut sm = figdriver::Smusher::new(&font);
+    sm.full_width = false;
+    sm.mode = font.layout;
+    let mut wr = figdriver::Wrapper::new(sm, 60);
+    assert!(!wr.push_str("Hi").is_err());
+    let output = wr.get();
+    let smushed_width = output[0].chars().count();
+    let mut sm_full = figdriver::Smusher::new(&font);
+    sm_full.full_width = true;
+    let mut wr_full = figdriver::Wrapper::new(sm_full, 60);
+    assert!(!wr_full.push_str("Hi").is_err());
+    let full_width = wr_full.get()[0].chars().count();
+    assert!(smushed_width < full_width);
+}
+
+#[test]
+fn smush_force_overrides_kern() {
+    // -S should take precedence over kern mode
+    let path = env!("CARGO_MANIFEST_DIR").to_owned() + &path::MAIN_SEPARATOR.to_string() + "fonts/small.flf";
+    let font = figdriver::FIGfont::from_path(path).unwrap();
+    let mut sm = figdriver::Smusher::new(&font);
+    sm.mode = font.layout;
+    sm.full_width = false;
+    let mut wr = figdriver::Wrapper::new(sm, 60);
+    assert!(!wr.push_str("Smushy").is_err());
+    let smushed = wr.get();
+    let mut sm_kern = figdriver::Smusher::new(&font);
+    sm_kern.mode = figdriver::SMUSH_KERN;
+    let mut wr_kern = figdriver::Wrapper::new(sm_kern, 60);
+    assert!(!wr_kern.push_str("Smushy").is_err());
+    let kerned = wr_kern.get();
+    let smushed_width = smushed[0].chars().count();
+    let kerned_width = kerned[0].chars().count();
+    assert!(smushed_width < kerned_width);
+}
