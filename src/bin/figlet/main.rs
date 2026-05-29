@@ -4,7 +4,6 @@ use std::path::{self, Path, PathBuf};
 use regex::Regex;
 use figdriver::Error;
 
-#[path = "../cli.rs"]
 mod cli;
 
 const FONT_DIR     : &str = "/usr/share/figlet";
@@ -13,9 +12,9 @@ const DEFAULT_WIDTH: usize = 80;
 
 
 fn main() -> Result<(), Error> {
-    let mut pargs = cli::Pargs::from_env();
+    let mut args = cli::Args::from_env();
 
-    if pargs.contains(["-h", "--help"]) {
+    if args.contains(["-h", "--help"]) {
         println!("Usage: figlet-rs [options] message
   -c, --center          center the output horizontally
   -d, --dir <dir>       set the default font directory
@@ -36,44 +35,34 @@ fn main() -> Result<(), Error> {
         return Ok(());
     }
 
-    let font_dir = pargs.opt_value_from_str::<String>(["-d", "--dir"])
+    let font_dir = args.opt_value_from_str::<String>(["-d", "--dir"])
         .map_err(|e| Error::Cli(e.to_string()))?
         .unwrap_or(FONT_DIR.to_string());
 
-    let font_name = pargs.opt_value_from_str::<String>(["-f", "--font"])
+    let font_name = args.opt_value_from_str::<String>(["-f", "--font"])
         .map_err(|e| Error::Cli(e.to_string()))?;
 
-    let use_kern = pargs.contains(["-k", "--kern"]);
-    let use_overlap = pargs.contains(["-o", "--overlap"]);
-    let use_full_width = pargs.contains(["-W", "--full-width"]);
-    let use_right_to_left = pargs.contains(["-R", "--right-to-left"]);
-    let use_smush = pargs.contains(["-s", "--smush-default"]);
-    let use_smush_force = pargs.contains(["-S", "--smush"]);
+    let use_kern = args.contains(["-k", "--kern"]);
+    let use_overlap = args.contains(["-o", "--overlap"]);
+    let use_full_width = args.contains(["-W", "--full-width"]);
+    let use_right_to_left = args.contains(["-R", "--right-to-left"]);
+    let use_smush = args.contains(["-s", "--smush-default"]);
+    let use_smush_force = args.contains(["-S", "--smush"]);
 
-    let width: usize = pargs.opt_value_from_str::<usize>(["-w", "--width"])
+    let width: usize = args.opt_value_from_str::<usize>(["-w", "--width"])
         .map_err(|e| Error::Cli(e.to_string()))?
         .unwrap_or(DEFAULT_WIDTH);
 
-    let paragraph = pargs.last_of(&[
+    let paragraph = args.last_of(&[
         (true,  &["-p", "--paragraph"]),
         (false, &["-n", "--normal"]),
     ]).unwrap_or(false);
 
-    // Consume paragraph/normal flags from pico_args so they don't leak into the message
-    let _ = pargs.contains(["-p", "--paragraph"]);
-    let _ = pargs.contains(["-n", "--normal"]);
-
-    let alignment = pargs.last_of(&[
+    let alignment = args.last_of(&[
         (figdriver::Align::Center, &["-c", "--center"]),
         (figdriver::Align::Left,   &["-l", "--left"]),
         (figdriver::Align::Right,  &["-r", "--right"]),
-        (figdriver::Align::Right,  &["-R", "--right-to-left"]),
     ]);
-
-    // Consume alignment flags from pico_args so they don't leak into the message
-    let _ = pargs.contains(["-c", "--center"]);
-    let _ = pargs.contains(["-l", "--left"]);
-    let _ = pargs.contains(["-r", "--right"]);
 
     let mut fontpath = PathBuf::from(font_dir);
     if let Some(name) = font_name {
@@ -82,7 +71,7 @@ fn main() -> Result<(), Error> {
         fontpath.push(DEFAULT_FONT);
     }
 
-    let msg: String = pargs.finish().into_iter()
+    let msg: String = args.finish().into_iter()
         .filter_map(|s: OsString| s.into_string().ok())
         .collect::<Vec<_>>()
         .join(" ");

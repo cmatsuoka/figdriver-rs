@@ -1,11 +1,11 @@
 use std::ffi::OsString;
 
-pub struct Pargs {
+pub struct Args {
     args: Vec<OsString>,
     inner: Option<pico_args::Arguments>,
 }
 
-impl Pargs {
+impl Args {
     pub fn from_env() -> Self {
         let mut args: Vec<OsString> = std::env::args_os().collect();
         let _progname = args.remove(0);
@@ -16,7 +16,11 @@ impl Pargs {
     }
 
     /// Returns the value whose alias appeared last in the original args.
-    pub fn last_of<'a, V: Clone>(&self, groups: &[(V, &[&'a str])]) -> Option<V> {
+    /// Consumes matched flags from pico_args so they don't leak into the message.
+    pub fn last_of<'a, V: Clone>(&mut self, groups: &[(V, &[&'a str])]) -> Option<V>
+    where
+        'a: 'static,
+    {
         let mut result: Option<V> = None;
         for arg in &self.args {
             let s = arg.to_string_lossy();
@@ -25,6 +29,10 @@ impl Pargs {
                     result = Some(value.clone());
                 }
             }
+        }
+        // Consume all matched flags from pico_args
+        for (_, aliases) in groups {
+            let _ = self.inner.as_mut().unwrap().contains([aliases[0], aliases[1]]);
         }
         result
     }
