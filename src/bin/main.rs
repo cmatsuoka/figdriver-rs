@@ -59,12 +59,21 @@ fn main() -> Result<(), Error> {
         (false, &["-n", "--normal"]),
     ]).unwrap_or(false);
 
+    // Consume paragraph/normal flags from pico_args so they don't leak into the message
+    let _ = pargs.contains(["-p", "--paragraph"]);
+    let _ = pargs.contains(["-n", "--normal"]);
+
     let alignment = pargs.last_of(&[
         (figdriver::Align::Center, &["-c", "--center"]),
         (figdriver::Align::Left,   &["-l", "--left"]),
         (figdriver::Align::Right,  &["-r", "--right"]),
         (figdriver::Align::Right,  &["-R", "--right-to-left"]),
     ]);
+
+    // Consume alignment flags from pico_args so they don't leak into the message
+    let _ = pargs.contains(["-c", "--center"]);
+    let _ = pargs.contains(["-l", "--left"]);
+    let _ = pargs.contains(["-r", "--right"]);
 
     let mut fontpath = PathBuf::from(font_dir);
     if let Some(name) = font_name {
