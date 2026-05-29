@@ -18,55 +18,48 @@ fn run(cmd: &mut Command) -> Vec<String> {
 }
 
 #[test]
-fn align_left_short_flag() {
-    let mut cmd = figlet_cmd();
-    cmd.arg("-f").arg("small").arg("-l").arg("Hi");
-    let output = run(&mut cmd);
-    assert_eq!(output, [
-        " _  _ _ ",
-        "| || (_)",
-        "| __ | |",
-        "|_||_|_|",
-    ]);
+fn align_left() {
+    for flag in ["-l", "--align-left"] {
+        let mut cmd = figlet_cmd();
+        cmd.arg("-f").arg("small").arg(flag).arg("Hi");
+        let output = run(&mut cmd);
+        assert_eq!(output, [
+            " _  _ _ ",
+            "| || (_)",
+            "| __ | |",
+            "|_||_|_|",
+        ]);
+    }
 }
 
 #[test]
-fn align_left_long_flag() {
-    let mut cmd = figlet_cmd();
-    cmd.arg("-f").arg("small").arg("--align-left").arg("Hi");
-    let output = run(&mut cmd);
-    assert_eq!(output, [
-        " _  _ _ ",
-        "| || (_)",
-        "| __ | |",
-        "|_||_|_|",
-    ]);
+fn align_right() {
+    for flag in ["-r", "--align-right"] {
+        let mut cmd = figlet_cmd();
+        cmd.arg("-f").arg("small").arg(flag).arg("-w").arg("40").arg("Hi");
+        let output = run(&mut cmd);
+        assert_eq!(output, [
+            "                                _  _ _ ",
+            "                               | || (_)",
+            "                               | __ | |",
+            "                               |_||_|_|",
+        ]);
+    }
 }
 
 #[test]
-fn align_right_short_flag() {
-    let mut cmd = figlet_cmd();
-    cmd.arg("-f").arg("small").arg("-r").arg("-w").arg("40").arg("Hi");
-    let output = run(&mut cmd);
-    assert_eq!(output, [
-        "                                _  _ _ ",
-        "                               | || (_)",
-        "                               | __ | |",
-        "                               |_||_|_|",
-    ]);
-}
-
-#[test]
-fn align_right_long_flag() {
-    let mut cmd = figlet_cmd();
-    cmd.arg("-f").arg("small").arg("--align-right").arg("-w").arg("40").arg("Hi");
-    let output = run(&mut cmd);
-    assert_eq!(output, [
-        "                                _  _ _ ",
-        "                               | || (_)",
-        "                               | __ | |",
-        "                               |_||_|_|",
-    ]);
+fn align_center() {
+    for flag in ["-c", "--center"] {
+        let mut cmd = figlet_cmd();
+        cmd.arg("-f").arg("small").arg(flag).arg("-w").arg("40").arg("Hi");
+        let output = run(&mut cmd);
+        assert_eq!(output, [
+            "                _  _ _ ",
+            "               | || (_)",
+            "               | __ | |",
+            "               |_||_|_|",
+        ]);
+    }
 }
 
 #[test]
