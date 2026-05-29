@@ -42,16 +42,16 @@ fn main() -> Result<(), Error> {
     let font_name = args.opt_value_from_str::<String>(["-f", "--font"])
         .map_err(|e| Error::Cli(e.to_string()))?;
 
+    let width: usize = args.opt_value_from_str::<usize>(["-w", "--width"])
+        .map_err(|e| Error::Cli(e.to_string()))?
+        .unwrap_or(DEFAULT_WIDTH);
+
     let use_kern = args.contains(["-k", "--kern"]);
     let use_overlap = args.contains(["-o", "--overlap"]);
     let use_full_width = args.contains(["-W", "--full-width"]);
     let use_right_to_left = args.contains(["-R", "--right-to-left"]);
     let use_smush = args.contains(["-s", "--smush-default"]);
     let use_smush_force = args.contains(["-S", "--smush"]);
-
-    let width: usize = args.opt_value_from_str::<usize>(["-w", "--width"])
-        .map_err(|e| Error::Cli(e.to_string()))?
-        .unwrap_or(DEFAULT_WIDTH);
 
     let paragraph = args.last_of(&[
         (true,  &["-p", "--paragraph"]),
@@ -156,6 +156,8 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
 
     if let Some(a) = cfg.alignment {
         wr.align = a;
+    } else if cfg.right_to_left {
+        wr.align = figdriver::Align::Right;
     }
 
     let re = Regex::new(r"(\S+|\s+)").unwrap();

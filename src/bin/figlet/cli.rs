@@ -8,7 +8,9 @@ pub struct Args {
 impl Args {
     pub fn from_env() -> Self {
         let mut args: Vec<OsString> = std::env::args_os().collect();
-        let _progname = args.remove(0);
+        if !args.is_empty() {
+            let _progname = args.remove(0);
+        }
         Self {
             args: args.clone(),
             inner: Some(pico_args::Arguments::from_vec(args)),
@@ -16,7 +18,7 @@ impl Args {
     }
 
     /// Returns the value whose alias appeared last in the original args.
-    /// Only matches flag-like arguments (starting with `-`).
+    /// Handles combined short flags (e.g., `-cp`) and consumes matched flags.
     pub fn last_of<'a, V: Clone>(&mut self, groups: &[(V, &[&'a str])]) -> Option<V>
     where
         'a: 'static,
@@ -27,13 +29,23 @@ impl Args {
             if !s.starts_with('-') {
                 continue;
             }
-            for (value, aliases) in groups {
-                if aliases.iter().any(|a| s == *a) {
-                    result = Some(value.clone());
+            if s.starts_with("--") {
+                for (value, aliases) in groups {
+                    if aliases.iter().any(|a| s == *a) {
+                        result = Some(value.clone());
+                    }
+                }
+            } else {
+                for c in s.chars().skip(1) {
+                    let flag = format!("-{}", c);
+                    for (value, aliases) in groups {
+                        if aliases.iter().any(|a| flag == *a) {
+                            result = Some(value.clone());
+                        }
+                    }
                 }
             }
         }
-        // Consume all occurrences of each alias from pico_args
         for (_, aliases) in groups {
             for alias in *aliases {
                 while self.inner.as_mut().unwrap().contains(*alias) {}
