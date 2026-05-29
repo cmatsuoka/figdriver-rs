@@ -6,6 +6,7 @@ use figdriver::Error;
 
 mod cli;
 
+const VERSION      : &str = "0.1.0";
 const FONT_DIR     : &str = "/usr/share/figlet";
 const DEFAULT_FONT : &str = "standard.flf";
 const DEFAULT_WIDTH: usize = 80;
@@ -14,8 +15,13 @@ const DEFAULT_WIDTH: usize = 80;
 fn main() -> Result<(), Error> {
     let mut args = cli::Args::from_env();
 
+    if args.contains(["-v", "--version"]) {
+        println!("figlet {}", VERSION);
+        return Ok(());
+    }
+
     if args.contains(["-h", "--help"]) {
-        println!("Usage: figlet-rs [options] message
+        println!("Usage: figlet [options] message
   -c, --center          center the output horizontally
   -d, --dir <dir>       set the default font directory
   -f, --font <name>     specify the figfont to use
@@ -30,6 +36,7 @@ fn main() -> Result<(), Error> {
   -r, --right           right-align the output
   -s, --smush-default   smushing respecting font default layout mode
   -S, --smush           force smushing mode to display characters
+  -v, --version         display version information and exit
   -W, --full-width      display characters in full width
   -w, --width <cols>    set the output width");
         return Ok(());
