@@ -68,21 +68,6 @@ fn main() -> Result<(), Error> {
         .collect::<Vec<_>>()
         .join(" ");
 
-    // When both -p and -n are given, the last flag on the command line wins.
-    let paragraph_mode = if use_paragraph && use_normal {
-        let mut para = false;
-        for arg in std::env::args().skip(1) {
-            match arg.as_str() {
-                "-p" | "--paragraph" => para = true,
-                "-n" => para = false,
-                _ => {}
-            }
-        }
-        para
-    } else {
-        use_paragraph
-    };
-
     run(&fontpath, &msg, &RunConfig {
             kern: use_kern,
             overlap: use_overlap,
@@ -91,7 +76,7 @@ fn main() -> Result<(), Error> {
             right: use_right,
             right_to_left: use_right_to_left,
             width,
-            paragraph: paragraph_mode,
+            paragraph: use_paragraph && !use_normal,
             smush: use_smush,
             smush_force: use_smush_force,
         })
