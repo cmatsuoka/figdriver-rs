@@ -1,6 +1,7 @@
 use crate::Error;
 use crate::Smusher;
 
+#[derive(Clone, Copy)]
 pub enum Align {
     Left,
     Right,

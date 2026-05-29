@@ -76,6 +76,60 @@ fn align_left_matches_default() {
 }
 
 #[test]
+fn align_left_wins_over_center_when_last() {
+    let mut cmd = figlet_cmd();
+    cmd.arg("-f").arg("small").arg("-c").arg("-l").arg("-w").arg("40").arg("Hi");
+    let output = run(&mut cmd);
+    assert_eq!(output, [
+        " _  _ _ ",
+        "| || (_)",
+        "| __ | |",
+        "|_||_|_|",
+    ]);
+}
+
+#[test]
+fn align_center_wins_over_left_when_last() {
+    let mut cmd = figlet_cmd();
+    cmd.arg("-f").arg("small").arg("-l").arg("-c").arg("-w").arg("40").arg("Hi");
+    let output = run(&mut cmd);
+    assert_eq!(output, [
+        "                _  _ _ ",
+        "               | || (_)",
+        "               | __ | |",
+        "               |_||_|_|",
+    ]);
+}
+
+#[test]
+fn align_right_wins_over_left_when_last() {
+    let mut cmd = figlet_cmd();
+    cmd.arg("-f").arg("small").arg("-l").arg("-r").arg("-w").arg("40").arg("Hi");
+    let output = run(&mut cmd);
+    assert_eq!(output, [
+        "                                _  _ _ ",
+        "                               | || (_)",
+        "                               | __ | |",
+        "                               |_||_|_|",
+    ]);
+}
+
+#[test]
+fn align_right_to_left_reverses_text() {
+    // -R enables right-to-left rendering, which reverses character order
+    let mut cmd_rtl = figlet_cmd();
+    cmd_rtl.arg("-f").arg("small").arg("-R").arg("-w").arg("40").arg("Hi");
+    let rtl_output = run(&mut cmd_rtl);
+
+    assert_eq!(rtl_output, [
+        "                                _ _  _ ",
+        "                               (_) || |",
+        "                               | | __ |",
+        "                               |_|_||_|",
+    ]);
+}
+
+#[test]
 fn align_right_has_padding() {
     let mut cmd_left = figlet_cmd();
     cmd_left.arg("-f").arg("small").arg("-l").arg("-w").arg("40").arg("Hi");

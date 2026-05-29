@@ -10,11 +10,11 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "figlet"
-path = "src/bin/main.rs"
+path = "src/bin/figlet/main.rs"
 doc = false
 
 [dependencies]
-pico-args = "0.5"
+pico-args = { version = "0.5", features = ["combined-flags", "short-space-opt", "eq-separator"] }
 regex = "1"
 
 [profile.release]
