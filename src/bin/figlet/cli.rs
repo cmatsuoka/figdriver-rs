@@ -26,7 +26,13 @@ impl Args {
         let mut result: Option<V> = None;
         for arg in &self.args {
             let s = arg.to_string_lossy();
+            if s == "--" {
+                break;
+            }
             if !s.starts_with('-') {
+                continue;
+            }
+            if s == "-" {
                 continue;
             }
             if s.starts_with("--") {
