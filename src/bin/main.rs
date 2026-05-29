@@ -48,6 +48,7 @@ fn main() -> Result<(), Error> {
     let use_full_width = pargs.contains(["-W", "--full-width"]);
     let use_center = pargs.contains(["-c", "--center"]);
     let use_right_to_left = pargs.contains(["-R", "--right-to-left"]);
+    let use_left = pargs.contains(["-l", "--left"]);
     let use_right = pargs.contains(["-r", "--right"]);
     let use_smush = pargs.contains(["-s", "--smush-default"]);
     let use_smush_force = pargs.contains(["-S", "--smush"]);
@@ -88,6 +89,7 @@ fn main() -> Result<(), Error> {
             overlap: use_overlap,
             full_width: use_full_width,
             center: use_center,
+            left: use_left,
             right: use_right,
             right_to_left: use_right_to_left,
             width,
@@ -119,6 +121,7 @@ struct RunConfig {
     overlap: bool,
     full_width: bool,
     center: bool,
+    left: bool,
     right: bool,
     right_to_left: bool,
     width: usize,
@@ -165,6 +168,8 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
 
     if cfg.center {
         wr.align = figdriver::Align::Center;
+    } else if cfg.left {
+        wr.align = figdriver::Align::Left;
     } else if cfg.right || cfg.right_to_left {
         wr.align = figdriver::Align::Right;
     }
