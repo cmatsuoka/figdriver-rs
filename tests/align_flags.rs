@@ -19,7 +19,7 @@ fn run(cmd: &mut Command) -> Vec<String> {
 
 #[test]
 fn align_left() {
-    for flag in ["-l", "--align-left"] {
+    for flag in ["-l", "--left"] {
         let mut cmd = figlet_cmd();
         cmd.arg("-f").arg("small").arg(flag).arg("Hi");
         let output = run(&mut cmd);
@@ -34,7 +34,7 @@ fn align_left() {
 
 #[test]
 fn align_right() {
-    for flag in ["-r", "--align-right"] {
+    for flag in ["-r", "--right"] {
         let mut cmd = figlet_cmd();
         cmd.arg("-f").arg("small").arg(flag).arg("-w").arg("40").arg("Hi");
         let output = run(&mut cmd);

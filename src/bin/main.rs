@@ -20,12 +20,12 @@ fn main() -> Result<(), Error> {
   -f, --font <name>     specify the figfont to use
   -h, --help            display usage information and exit
   -k, --kern            use kerning mode to display characters
-  -l, --align-left      left-align the output
+  -l, --left            left-align the output
   -m, --mode <num>      override the font layout mode
   -o, --overlap         use character overlapping mode
   -p, --paragraph       ignore mid-paragraph line breaks
   -R, --right-to-left   enable right-to-left print direction
-  -r, --align-right     right-align the output
+  -r, --right           right-align the output
   -s, --smush-default   smushing respecting font default layout mode
   -S, --smush           force smushing mode to display characters
   -W, --full-width      display characters in full width
@@ -46,8 +46,8 @@ fn main() -> Result<(), Error> {
     let use_full_width = pargs.contains(["-W", "--full-width"]);
     let use_center = pargs.contains(["-c", "--center"]);
     let use_right_to_left = pargs.contains(["-R", "--right-to-left"]);
-    let use_left = pargs.contains(["-l", "--align-left"]);
-    let use_right = pargs.contains(["-r", "--align-right"]);
+    let use_left = pargs.contains(["-l", "--left"]);
+    let use_right = pargs.contains(["-r", "--right"]);
     let use_smush = pargs.contains(["-s", "--smush-default"]);
     let use_smush_force = pargs.contains(["-S", "--smush"]);
 
