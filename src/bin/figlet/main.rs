@@ -6,7 +6,6 @@ use figdriver::Error;
 
 mod cli;
 
-const VERSION      : &str = "0.1.0";
 const FONT_DIR     : &str = "/usr/share/figlet";
 const DEFAULT_FONT : &str = "standard.flf";
 const DEFAULT_WIDTH: usize = 80;
@@ -16,7 +15,7 @@ fn main() -> Result<(), Error> {
     let mut args = cli::Args::from_env();
 
     if args.contains(["-v", "--version"]) {
-        println!("figlet {}", VERSION);
+        println!("figlet {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
 
