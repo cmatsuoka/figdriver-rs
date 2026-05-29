@@ -1,9 +1,11 @@
 use std::ffi::OsString;
 use std::io::{self, BufRead};
 use std::path::{self, Path, PathBuf};
-use pico_args::Arguments;
 use regex::Regex;
 use figdriver::Error;
+
+#[path = "../cli.rs"]
+mod cli;
 
 const FONT_DIR     : &str = "/usr/share/figlet";
 const DEFAULT_FONT : &str = "standard.flf";
@@ -11,7 +13,7 @@ const DEFAULT_WIDTH: usize = 80;
 
 
 fn main() -> Result<(), Error> {
-    let mut pargs = Arguments::from_env();
+    let mut pargs = cli::Pargs::from_env();
 
     if pargs.contains(["-h", "--help"]) {
         println!("Usage: figlet-rs [options] message
@@ -34,28 +36,35 @@ fn main() -> Result<(), Error> {
         return Ok(());
     }
 
-    let font_dir = pargs.opt_value_from_str::<_, String>(["-d", "--dir"])
+    let font_dir = pargs.opt_value_from_str::<String>(["-d", "--dir"])
         .map_err(|e| Error::Cli(e.to_string()))?
         .unwrap_or(FONT_DIR.to_string());
 
-    let font_name = pargs.opt_value_from_str::<_, String>(["-f", "--font"])
+    let font_name = pargs.opt_value_from_str::<String>(["-f", "--font"])
         .map_err(|e| Error::Cli(e.to_string()))?;
 
     let use_kern = pargs.contains(["-k", "--kern"]);
     let use_overlap = pargs.contains(["-o", "--overlap"]);
-    let use_paragraph = pargs.contains(["-p", "--paragraph"]);
-    let use_normal = pargs.contains(["-n", "--normal"]);
     let use_full_width = pargs.contains(["-W", "--full-width"]);
-    let use_center = pargs.contains(["-c", "--center"]);
     let use_right_to_left = pargs.contains(["-R", "--right-to-left"]);
-    let use_left = pargs.contains(["-l", "--left"]);
-    let use_right = pargs.contains(["-r", "--right"]);
     let use_smush = pargs.contains(["-s", "--smush-default"]);
     let use_smush_force = pargs.contains(["-S", "--smush"]);
 
-    let width: usize = pargs.opt_value_from_str::<_, usize>(["-w", "--width"])
+    let width: usize = pargs.opt_value_from_str::<usize>(["-w", "--width"])
         .map_err(|e| Error::Cli(e.to_string()))?
         .unwrap_or(DEFAULT_WIDTH);
+
+    let paragraph = pargs.last_of(&[
+        (true,  &["-p", "--paragraph"]),
+        (false, &["-n", "--normal"]),
+    ]).unwrap_or(false);
+
+    let alignment = pargs.last_of(&[
+        (figdriver::Align::Center, &["-c", "--center"]),
+        (figdriver::Align::Left,   &["-l", "--left"]),
+        (figdriver::Align::Right,  &["-r", "--right"]),
+        (figdriver::Align::Right,  &["-R", "--right-to-left"]),
+    ]);
 
     let mut fontpath = PathBuf::from(font_dir);
     if let Some(name) = font_name {
@@ -69,31 +78,14 @@ fn main() -> Result<(), Error> {
         .collect::<Vec<_>>()
         .join(" ");
 
-    // When both -p and -n are given, the last flag on the command line wins.
-    let paragraph_mode = if use_paragraph && use_normal {
-        let mut para = false;
-        for arg in std::env::args().skip(1) {
-            match arg.as_str() {
-                "-p" | "--paragraph" => para = true,
-                "-n" | "--normal" => para = false,
-                _ => {}
-            }
-        }
-        para
-    } else {
-        use_paragraph
-    };
-
     run(&fontpath, &msg, &RunConfig {
             kern: use_kern,
             overlap: use_overlap,
             full_width: use_full_width,
-            center: use_center,
-            left: use_left,
-            right: use_right,
             right_to_left: use_right_to_left,
             width,
-            paragraph: paragraph_mode,
+            paragraph,
+            alignment,
             smush: use_smush,
             smush_force: use_smush_force,
         })
@@ -120,12 +112,10 @@ struct RunConfig {
     kern: bool,
     overlap: bool,
     full_width: bool,
-    center: bool,
-    left: bool,
-    right: bool,
     right_to_left: bool,
     width: usize,
     paragraph: bool,
+    alignment: Option<figdriver::Align>,
     smush: bool,
     smush_force: bool,
 }
@@ -166,12 +156,8 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     // "allow lines up to N-1 characters" rather than N characters.
     let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1);
 
-    if cfg.center {
-        wr.align = figdriver::Align::Center;
-    } else if cfg.left {
-        wr.align = figdriver::Align::Left;
-    } else if cfg.right || cfg.right_to_left {
-        wr.align = figdriver::Align::Right;
+    if let Some(a) = cfg.alignment {
+        wr.align = a;
     }
 
     let re = Regex::new(r"(\S+|\s+)").unwrap();
