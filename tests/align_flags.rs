@@ -117,12 +117,19 @@ fn align_right_wins_over_left_when_last() {
 #[test]
 fn align_right_to_left_reverses_text() {
     // -R enables right-to-left rendering, which reverses character order
-    let mut cmd = figlet_cmd();
-    cmd.arg("-f").arg("small").arg("-R").arg("-w").arg("40").arg("Hi");
-    let output = run(&mut cmd);
-    assert_eq!(output.len(), 4);
-    // With RTL, "Hi" is rendered as reversed characters
-    assert!(output[0].contains("_ "), "RTL output should have reversed character rendering");
+    let mut cmd_normal = figlet_cmd();
+    cmd_normal.arg("-f").arg("small").arg("-w").arg("40").arg("Hi");
+    let normal_output = run(&mut cmd_normal);
+
+    let mut cmd_rtl = figlet_cmd();
+    cmd_rtl.arg("-f").arg("small").arg("-R").arg("-w").arg("40").arg("Hi");
+    let rtl_output = run(&mut cmd_rtl);
+
+    assert_eq!(rtl_output.len(), normal_output.len());
+    assert_ne!(
+        rtl_output, normal_output,
+        "RTL output should differ from normal output"
+    );
 }
 
 #[test]
