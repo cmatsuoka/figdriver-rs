@@ -85,6 +85,12 @@ fn align_right_has_padding() {
     cmd_right.arg("-f").arg("small").arg("-r").arg("-w").arg("40").arg("Hi");
     let right_output = run(&mut cmd_right);
 
+    assert_eq!(
+        left_output.len(),
+        right_output.len(),
+        "Left and right outputs must have the same number of lines"
+    );
+
     for (left, right) in left_output.iter().zip(right_output.iter()) {
         assert!(
             left.len() < right.len(),
