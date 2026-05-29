@@ -11,6 +11,19 @@ const DEFAULT_WIDTH: usize = 80;
 
 
 fn main() -> Result<(), Error> {
+    // Determine paragraph mode before pico_args consumes flags: last of -n/-p wins.
+    let use_paragraph = {
+        let mut para = false;
+        for arg in std::env::args().skip(1) {
+            match arg.as_str() {
+                "-p" | "--paragraph" => para = true,
+                "-n" => para = false,
+                _ => {}
+            }
+        }
+        para
+    };
+
     let mut pargs = Arguments::from_env();
 
     if pargs.contains(["-h", "--help"]) {
@@ -22,6 +35,7 @@ fn main() -> Result<(), Error> {
   -k, --kern            use kerning mode to display characters
   -l, --left            left-align the output
   -m, --mode <num>      override the font layout mode
+  -n, --normal          use normal mode (each newline causes a line break)
   -o, --overlap         use character overlapping mode
   -p, --paragraph       ignore mid-paragraph line breaks
   -R, --right-to-left   enable right-to-left print direction
@@ -42,7 +56,8 @@ fn main() -> Result<(), Error> {
 
     let use_kern = pargs.contains(["-k", "--kern"]);
     let use_overlap = pargs.contains(["-o", "--overlap"]);
-    let use_paragraph = pargs.contains(["-p", "--paragraph"]);
+    let _ = pargs.contains(["-p", "--paragraph"]);
+    let _ = pargs.contains("-n");
     let use_full_width = pargs.contains(["-W", "--full-width"]);
     let use_center = pargs.contains(["-c", "--center"]);
     let use_right_to_left = pargs.contains(["-R", "--right-to-left"]);
