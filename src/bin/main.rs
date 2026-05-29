@@ -44,7 +44,7 @@ fn main() -> Result<(), Error> {
     let use_kern = pargs.contains(["-k", "--kern"]);
     let use_overlap = pargs.contains(["-o", "--overlap"]);
     let use_paragraph = pargs.contains(["-p", "--paragraph"]);
-    let use_normal = pargs.contains("-n");
+    let use_normal = pargs.contains(["-n", "--normal"]);
     let use_full_width = pargs.contains(["-W", "--full-width"]);
     let use_center = pargs.contains(["-c", "--center"]);
     let use_right_to_left = pargs.contains(["-R", "--right-to-left"]);
@@ -68,6 +68,21 @@ fn main() -> Result<(), Error> {
         .collect::<Vec<_>>()
         .join(" ");
 
+    // When both -p and -n are given, the last flag on the command line wins.
+    let paragraph_mode = if use_paragraph && use_normal {
+        let mut para = false;
+        for arg in std::env::args().skip(1) {
+            match arg.as_str() {
+                "-p" | "--paragraph" => para = true,
+                "-n" | "--normal" => para = false,
+                _ => {}
+            }
+        }
+        para
+    } else {
+        use_paragraph
+    };
+
     run(&fontpath, &msg, &RunConfig {
             kern: use_kern,
             overlap: use_overlap,
@@ -76,7 +91,7 @@ fn main() -> Result<(), Error> {
             right: use_right,
             right_to_left: use_right_to_left,
             width,
-            paragraph: use_paragraph && !use_normal,
+            paragraph: paragraph_mode,
             smush: use_smush,
             smush_force: use_smush_force,
         })
