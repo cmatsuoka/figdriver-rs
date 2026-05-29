@@ -6,21 +6,13 @@ fn figlet_cmd() -> Command {
 }
 
 #[test]
-fn version_short_flag() {
-    let mut cmd = figlet_cmd();
-    cmd.arg("-v");
-    let output = cmd.output().unwrap();
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), format!("figlet {}", env!("CARGO_PKG_VERSION")));
-}
-
-#[test]
-fn version_long_flag() {
-    let mut cmd = figlet_cmd();
-    cmd.arg("--version");
-    let output = cmd.output().unwrap();
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert_eq!(stdout.trim(), format!("figlet {}", env!("CARGO_PKG_VERSION")));
+fn version_flag() {
+    for flag in ["-v", "--version"] {
+        let mut cmd = figlet_cmd();
+        cmd.arg(flag);
+        let output = cmd.output().unwrap();
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(stdout.trim(), format!("figlet {}", env!("CARGO_PKG_VERSION")));
+    }
 }
