@@ -59,6 +59,9 @@ fn main() -> Result<(), Error> {
     let use_smush = args.contains(["-s", "--smush-default"]);
     let use_smush_force = args.contains(["-S", "--smush"]);
 
+    let mode_value: Option<i32> = args.opt_value_from_str::<i32>(["-m", "--mode"])
+        .map_err(|e| Error::Cli(e.to_string()))?;
+
     let paragraph = args.last_of(&[
         (true,  &["-p", "--paragraph"]),
         (false, &["-n", "--normal"]),
@@ -92,6 +95,7 @@ fn main() -> Result<(), Error> {
             alignment,
             smush: use_smush,
             smush_force: use_smush_force,
+            mode: mode_value,
         })
 }
 
@@ -122,6 +126,7 @@ struct RunConfig {
     alignment: Option<figdriver::Align>,
     smush: bool,
     smush_force: bool,
+    mode: Option<i32>,
 }
 
 fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
@@ -132,7 +137,30 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     let font = figdriver::FIGfont::from_path(path)?;
     let mut sm = figdriver::Smusher::new(&font);
 
-    if cfg.smush_force {
+    if let Some(m) = cfg.mode {
+        match m {
+            0 => {
+                sm.mode = figdriver::SMUSH_KERN;
+                sm.full_width = false;
+            }
+            -1 => {
+                sm.full_width = true;
+            }
+            -2 => {
+                if (font.layout & figdriver::SMUSH_ENABLE) != 0 {
+                    sm.mode = font.layout;
+                    sm.full_width = false;
+                }
+            }
+            1..=255 => {
+                sm.mode = m as u32;
+                sm.full_width = false;
+            }
+            _ => {
+                return Err(Error::Cli(format!("Invalid mode value: {}", m)));
+            }
+        }
+    } else if cfg.smush_force {
         if (font.layout & figdriver::SMUSH_ENABLE) != 0 {
             sm.mode = font.layout;
         } else {
