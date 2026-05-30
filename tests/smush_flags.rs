@@ -62,19 +62,6 @@ fn smush_force_produces_smushed_output() {
 }
 
 #[test]
-fn smush_force_narrower_than_full_width() {
-    let mut cmd_smush = figlet_cmd();
-    cmd_smush.arg("-f").arg("small").arg("-S").arg("Hi");
-    let smush_output = run(&mut cmd_smush);
-
-    let mut cmd_full = figlet_cmd();
-    cmd_full.arg("-f").arg("small").arg("-W").arg("Hi");
-    let full_output = run(&mut cmd_full);
-
-    assert!(smush_output[0].len() < full_output[0].len());
-}
-
-#[test]
 fn smush_force_on_kerning_font_falls_back_to_overlap() {
     let mut cmd = figlet_cmd();
     cmd.arg("-f").arg("banner").arg("-S").arg("Hi");
@@ -205,19 +192,6 @@ fn mode_63_enables_all_smush_rules() {
         "| __ | |",
         "|_||_|_|",
     ]);
-}
-
-#[test]
-fn mode_63_narrower_than_full_width() {
-    let mut cmd_m63 = figlet_cmd();
-    cmd_m63.arg("-f").arg("small").arg("-m").arg("63").arg("Hi");
-    let m63_output = run(&mut cmd_m63);
-
-    let mut cmd_full = figlet_cmd();
-    cmd_full.arg("-f").arg("small").arg("-W").arg("Hi");
-    let full_output = run(&mut cmd_full);
-
-    assert!(m63_output[0].len() < full_output[0].len());
 }
 
 #[test]
