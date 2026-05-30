@@ -152,7 +152,7 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
                     sm.full_width = false;
                 }
             }
-            1..=255 => {
+            1.. => {
                 sm.mode = m as u32;
                 sm.full_width = false;
             }
