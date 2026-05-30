@@ -21,23 +21,23 @@ fn main() -> Result<(), Error> {
 
     if args.contains(["-h", "--help"]) {
         println!("Usage: figlet [options] message
-  -c, --center          center the output horizontally
-  -d, --dir <dir>       set the default font directory
-  -f, --font <name>     specify the figfont to use
-  -h, --help            display usage information and exit
-  -k, --kern            use kerning mode to display characters
-  -l, --left            left-align the output
-  -m, --mode <num>      override the font layout mode
-  -n, --normal          use normal mode (each newline causes a line break)
-  -o, --overlap         use character overlapping mode
-  -p, --paragraph       ignore mid-paragraph line breaks
-  -R, --right-to-left   enable right-to-left print direction
-  -r, --right           right-align the output
-  -s, --smush-default   smushing respecting font default layout mode
-  -S, --smush           force smushing mode to display characters
-  -v, --version         display version information and exit
-  -W, --full-width      display characters in full width
-  -w, --width <cols>    set the output width");
+  -c, --center             center the output horizontally
+  -d, --dir <dir>          set the default font directory
+  -f, --font <name>        specify the figfont to use
+  -h, --help               display usage information and exit
+  -k, --kern               use kerning mode to display characters
+  -l, --left               left-align the output
+  -m, --layout-mode <num>  override the font layout mode
+  -n, --normal             use normal mode (each newline causes a line break)
+  -o, --overlap            use character overlapping mode
+  -p, --paragraph          ignore mid-paragraph line breaks
+  -R, --right-to-left      enable right-to-left print direction
+  -r, --right              right-align the output
+  -s, --smush-default      smushing respecting font default layout mode
+  -S, --smush              force smushing mode to display characters
+  -v, --version            display version information and exit
+  -W, --full-width         display characters in full width
+  -w, --width <cols>       set the output width");
         return Ok(());
     }
 
@@ -58,6 +58,9 @@ fn main() -> Result<(), Error> {
     let use_right_to_left = args.contains(["-R", "--right-to-left"]);
     let use_smush = args.contains(["-s", "--smush-default"]);
     let use_smush_force = args.contains(["-S", "--smush"]);
+
+    let layout_mode: Option<i32> = args.opt_value_from_str::<i32>(["-m", "--layout-mode"])
+        .map_err(|e| Error::Cli(e.to_string()))?;
 
     let paragraph = args.last_of(&[
         (true,  &["-p", "--paragraph"]),
@@ -92,6 +95,7 @@ fn main() -> Result<(), Error> {
             alignment,
             smush: use_smush,
             smush_force: use_smush_force,
+            layout_mode,
         })
 }
 
@@ -122,6 +126,7 @@ struct RunConfig {
     alignment: Option<figdriver::Align>,
     smush: bool,
     smush_force: bool,
+    layout_mode: Option<i32>,
 }
 
 fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
@@ -132,7 +137,30 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     let font = figdriver::FIGfont::from_path(path)?;
     let mut sm = figdriver::Smusher::new(&font);
 
-    if cfg.smush_force {
+    if let Some(m) = cfg.layout_mode {
+        match m {
+            0 => {
+                sm.mode = figdriver::SMUSH_KERN;
+                sm.full_width = false;
+            }
+            -1 => {
+                sm.full_width = true;
+            }
+            -2 => {
+                if (font.layout & figdriver::SMUSH_ENABLE) != 0 {
+                    sm.mode = font.layout;
+                    sm.full_width = false;
+                }
+            }
+            1.. => {
+                sm.mode = m as u32;
+                sm.full_width = false;
+            }
+            _ => {
+                return Err(Error::Cli(format!("Invalid mode value: {}", m)));
+            }
+        }
+    } else if cfg.smush_force {
         if (font.layout & figdriver::SMUSH_ENABLE) != 0 {
             sm.mode = font.layout;
         } else {
