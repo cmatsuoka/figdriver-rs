@@ -27,7 +27,7 @@ fn main() -> Result<(), Error> {
   -h, --help            display usage information and exit
   -k, --kern            use kerning mode to display characters
   -l, --left            left-align the output
-  -m, --mode <num>      override the font layout mode
+  -m, --layout-mode <num>      override the font layout mode
   -n, --normal          use normal mode (each newline causes a line break)
   -o, --overlap         use character overlapping mode
   -p, --paragraph       ignore mid-paragraph line breaks
@@ -59,7 +59,7 @@ fn main() -> Result<(), Error> {
     let use_smush = args.contains(["-s", "--smush-default"]);
     let use_smush_force = args.contains(["-S", "--smush"]);
 
-    let mode_value: Option<i32> = args.opt_value_from_str::<i32>(["-m", "--mode"])
+    let layout_mode: Option<i32> = args.opt_value_from_str::<i32>(["-m", "--layout-mode"])
         .map_err(|e| Error::Cli(e.to_string()))?;
 
     let paragraph = args.last_of(&[
@@ -95,7 +95,7 @@ fn main() -> Result<(), Error> {
             alignment,
             smush: use_smush,
             smush_force: use_smush_force,
-            mode: mode_value,
+            layout_mode: layout_mode,
         })
 }
 
@@ -126,7 +126,7 @@ struct RunConfig {
     alignment: Option<figdriver::Align>,
     smush: bool,
     smush_force: bool,
-    mode: Option<i32>,
+    layout_mode: Option<i32>,
 }
 
 fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
@@ -137,7 +137,7 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     let font = figdriver::FIGfont::from_path(path)?;
     let mut sm = figdriver::Smusher::new(&font);
 
-    if let Some(m) = cfg.mode {
+    if let Some(m) = cfg.layout_mode {
         match m {
             0 => {
                 sm.mode = figdriver::SMUSH_KERN;

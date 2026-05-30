@@ -213,7 +213,7 @@ fn mode_63_narrower_than_full_width() {
 #[test]
 fn mode_long_flag_works() {
     let mut cmd = figlet_cmd();
-    cmd.arg("-f").arg("small").arg("--mode").arg("7").arg("Hi");
+    cmd.arg("-f").arg("small").arg("--layout-mode").arg("7").arg("Hi");
     let output = run(&mut cmd);
     assert!(!output.is_empty());
 }
