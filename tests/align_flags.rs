@@ -54,10 +54,10 @@ fn align_center() {
         cmd.arg("-f").arg("small").arg(flag).arg("-w").arg("40").arg("Hi");
         let output = run(&mut cmd);
         assert_eq!(output, [
-            "                _  _ _ ",
-            "               | || (_)",
-            "               | __ | |",
-            "               |_||_|_|",
+            "                 _  _ _ ",
+            "                | || (_)",
+            "                | __ | |",
+            "                |_||_|_|",
         ]);
     }
 }
@@ -94,10 +94,10 @@ fn align_center_wins_over_left_when_last() {
     cmd.arg("-f").arg("small").arg("-l").arg("-c").arg("-w").arg("40").arg("Hi");
     let output = run(&mut cmd);
     assert_eq!(output, [
-        "                _  _ _ ",
-        "               | || (_)",
-        "               | __ | |",
-        "               |_||_|_|",
+        "                 _  _ _ ",
+        "                | || (_)",
+        "                | __ | |",
+        "                |_||_|_|",
     ]);
 }
 
