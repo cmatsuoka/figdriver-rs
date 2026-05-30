@@ -95,7 +95,7 @@ fn main() -> Result<(), Error> {
             alignment,
             smush: use_smush,
             smush_force: use_smush_force,
-            layout_mode: layout_mode,
+            layout_mode,
         })
 }
 
