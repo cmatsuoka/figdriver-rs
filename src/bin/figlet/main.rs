@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 use std::io::{self, BufRead};
-use std::path::{self, Path, PathBuf};
+use std::path::{Path, PathBuf, is_separator};
 use regex::Regex;
 use figdriver::Error;
 
@@ -104,7 +104,7 @@ fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
         name = format!("{}.flf", name);
     }
 
-    if name.starts_with(path::MAIN_SEPARATOR) {
+    if name.starts_with(is_separator) {
         return PathBuf::from(name);
     }
 
