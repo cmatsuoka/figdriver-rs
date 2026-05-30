@@ -181,12 +181,17 @@ fn mode_minus_2_skips_kerning_only_font() {
     assert_eq!(m2_output, kern_output);
 }
 
-#[test]
+ #[test]
 fn mode_1_enables_equal_smush() {
     let mut cmd = figlet_cmd();
     cmd.arg("-f").arg("small").arg("-m").arg("1").arg("Hi");
     let output = run(&mut cmd);
-    assert!(!output.is_empty());
+    assert_eq!(output, [
+        " _  _  _",
+        "| || |(_)",
+        "| __ || |",
+        "|_||_||_|",
+    ]);
 }
 
 #[test]
@@ -194,7 +199,12 @@ fn mode_63_enables_all_smush_rules() {
     let mut cmd = figlet_cmd();
     cmd.arg("-f").arg("small").arg("-m").arg("63").arg("Hi");
     let output = run(&mut cmd);
-    assert!(!output.is_empty());
+    assert_eq!(output, [
+        " _  _ _",
+        "| || (_)",
+        "| __ | |",
+        "|_||_|_|",
+    ]);
 }
 
 #[test]
@@ -215,7 +225,12 @@ fn mode_long_flag_works() {
     let mut cmd = figlet_cmd();
     cmd.arg("-f").arg("small").arg("--layout-mode").arg("7").arg("Hi");
     let output = run(&mut cmd);
-    assert!(!output.is_empty());
+    assert_eq!(output, [
+        " _  _ _",
+        "| || (_)",
+        "| __ | |",
+        "|_||_|_|",
+    ]);
 }
 
 #[test]
@@ -223,7 +238,7 @@ fn mode_invalid_value_fails() {
     let mut cmd = figlet_cmd();
     cmd.arg("-f").arg("small").arg("-m").arg("-256").arg("Hi");
     let output = cmd.output().unwrap();
-    assert!(!output.stderr.is_empty());
+    assert!(!String::from_utf8_lossy(&output.stderr).is_empty());
 }
 
 #[test]
