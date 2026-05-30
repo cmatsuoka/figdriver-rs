@@ -101,7 +101,7 @@ impl<'a> Wrapper<'a> {
 
         match self.align {
             Align::Left   => v.to_vec(),
-            Align::Center => add_pad(&v, w / 2),
+            Align::Center => add_pad(&v, w / 2 + w % 2),
             Align::Right  => add_pad(&v, w),
         }
     }
