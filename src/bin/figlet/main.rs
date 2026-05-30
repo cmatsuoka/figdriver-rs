@@ -21,23 +21,23 @@ fn main() -> Result<(), Error> {
 
     if args.contains(["-h", "--help"]) {
         println!("Usage: figlet [options] message
-  -c, --center          center the output horizontally
-  -d, --dir <dir>       set the default font directory
-  -f, --font <name>     specify the figfont to use
-  -h, --help            display usage information and exit
-  -k, --kern            use kerning mode to display characters
-  -l, --left            left-align the output
+  -c, --center                 center the output horizontally
+  -d, --dir <dir>              set the default font directory
+  -f, --font <name>            specify the figfont to use
+  -h, --help                   display usage information and exit
+  -k, --kern                   use kerning mode to display characters
+  -l, --left                   left-align the output
   -m, --layout-mode <num>      override the font layout mode
-  -n, --normal          use normal mode (each newline causes a line break)
-  -o, --overlap         use character overlapping mode
-  -p, --paragraph       ignore mid-paragraph line breaks
-  -R, --right-to-left   enable right-to-left print direction
-  -r, --right           right-align the output
-  -s, --smush-default   smushing respecting font default layout mode
-  -S, --smush           force smushing mode to display characters
-  -v, --version         display version information and exit
-  -W, --full-width      display characters in full width
-  -w, --width <cols>    set the output width");
+  -n, --normal                 use normal mode (each newline causes a line break)
+  -o, --overlap                use character overlapping mode
+  -p, --paragraph              ignore mid-paragraph line breaks
+  -R, --right-to-left          enable right-to-left print direction
+  -r, --right                  right-align the output
+  -s, --smush-default          smushing respecting font default layout mode
+  -S, --smush                  force smushing mode to display characters
+  -v, --version                display version information and exit
+  -W, --full-width             display characters in full width
+  -w, --width <cols>           set the output width");
         return Ok(());
     }
 
