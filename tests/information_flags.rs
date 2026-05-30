@@ -1,15 +1,10 @@
-use std::process::Command;
-
-fn figlet_cmd() -> Command {
-    let binary = env!("CARGO_BIN_EXE_figlet");
-    Command::new(binary)
-}
+mod common;
+use common::cmd_figlet;
 
 #[test]
 fn version_flag() {
     for flag in ["-v", "--version"] {
-        let mut cmd = figlet_cmd();
-        cmd.arg(flag);
+        let mut cmd = cmd_figlet(&[flag]);
         let output = cmd.output().unwrap();
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
