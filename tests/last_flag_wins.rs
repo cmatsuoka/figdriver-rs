@@ -133,9 +133,9 @@ fn direction_justification_independent_r_l() {
     // -R -l: RTL direction, explicit left justification
     let output = run_no_trim(&["-f", "small", "-R", "-l", "-w", "40", "Hi"]);
     assert_eq!(output, [
-        " _ _  _ ",
-        "(_) || |",
-        "| | __ |",
-        "|_|_||_|",
+        "  _ _  _ ",
+        " (_) || |",
+        " | | __ |",
+        " |_|_||_|",
     ]);
 }
