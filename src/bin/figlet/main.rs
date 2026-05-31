@@ -53,8 +53,8 @@ fn main() -> Result<(), Error> {
   -v, --version            display version information and exit
   -W, --full-width         display characters in full width
   -w, --width <cols>       set the output width
-  -x                       default justification (left for LTR, right for RTL)
-  -X                       use font file's default print direction");
+  -x, --default-justification  default justification (left for LTR, right for RTL)
+  -X, --font-direction         use font file's default print direction");
         return Ok(());
     }
 
@@ -89,14 +89,14 @@ fn main() -> Result<(), Error> {
     let print_dir = args.last_of(&[
         (PrintDir::Ltr,         &["-L", "--left-to-right"]),
         (PrintDir::Rtl,         &["-R", "--right-to-left"]),
-        (PrintDir::FontDefault, &["-X"]),
+        (PrintDir::FontDefault, &["-X", "--font-direction"]),
     ]).unwrap_or(PrintDir::FontDefault);
 
     let justify = args.last_of(&[
         (Justify::Left,    &["-l", "--left"]),
         (Justify::Right,   &["-r", "--right"]),
         (Justify::Center,  &["-c", "--center"]),
-        (Justify::Default, &["-x"]),
+        (Justify::Default, &["-x", "--default-justification"]),
     ]).unwrap_or(Justify::Default);
 
     if let Some(code) = infocode {
