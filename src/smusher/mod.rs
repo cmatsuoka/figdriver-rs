@@ -25,7 +25,7 @@ impl<'a> Smusher<'a> {
     pub fn replace_hardblanks(&self, lines: &mut [String]) {
         let hb = self.font.hardblank;
         for line in lines {
-            *line = line.replace(&hb.to_string(), " ");
+            *line = line.replace(hb, " ");
         }
     }
 
