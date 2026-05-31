@@ -143,6 +143,7 @@ fn print_infocode(code: i32, font_dir: &str, font_name: &str, width: usize) {
         5 => {
             println!("flf2");
         }
+        // Reference figlet exits silently (code 0) for unsupported infocodes.
         _ => {}
     }
 }
