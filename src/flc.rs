@@ -230,7 +230,7 @@ fn parse_t_command(line: &str) -> Result<Option<FlcCommand>, Error> {
         return Ok(None);
     }
     if tokens.len() < 3 {
-        return Ok(None);
+        return Err(Error::ControlFormat("invalid t command"));
     }
 
     let in_part: &str = &tokens[1];
@@ -424,10 +424,13 @@ fn find_range_separator(s: &str) -> Option<usize> {
 fn parse_char_code(s: &str) -> Result<i32, Error> {
     if let Some(rest) = s.strip_prefix('\\') {
         parse_escape_sequence(rest)
-    } else if s.len() == 1 {
-        Ok(s.as_bytes()[0] as i32)
     } else {
-        parse_numeric_code(s)
+        let chars: Vec<char> = s.chars().collect();
+        if chars.len() == 1 {
+            Ok(chars[0] as i32)
+        } else {
+            parse_numeric_code(s)
+        }
     }
 }
 
