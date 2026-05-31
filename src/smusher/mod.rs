@@ -59,7 +59,8 @@ impl<'a> Smusher<'a> {
 
     /// Get the contents of the output buffer, replacing hardblanks with spaces.
     pub fn get(&self) -> Vec<String> {
-        self.output.iter().map(|s| s.replace(&self.font.hardblank.to_string(), " ")).collect()
+        let hb = self.font.hardblank;
+        self.output.iter().map(|s| s.replace(hb, " ")).collect()
     }
 
     /// Get the contents of the output buffer, preserving hardblanks for further processing.
