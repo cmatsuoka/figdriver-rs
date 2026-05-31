@@ -106,6 +106,12 @@ fn main() -> Result<(), Error> {
         return Ok(());
     }
 
+    if let Some(code) = infocode {
+        let display_font = font_name.as_deref().unwrap_or(DEFAULT_FONT);
+        print_infocode(code, &font_dir, display_font, width);
+        return Ok(());
+    }
+
     let mut fontpath = PathBuf::from(font_dir);
     if let Some(name) = font_name {
         fontpath = find_font(fontpath, name);
@@ -166,9 +172,13 @@ fn print_version_int() {
 }
 
 fn strip_font_suffix(name: &str) -> &str {
-    name.strip_suffix(".flf")
-        .or_else(|| name.strip_suffix(".tlf"))
-        .unwrap_or(name)
+    if let Some(stripped) = name.strip_suffix(".flf") {
+        stripped
+    } else if let Some(stripped) = name.strip_suffix(".tlf") {
+        stripped
+    } else {
+        name
+    }
 }
 
 fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
