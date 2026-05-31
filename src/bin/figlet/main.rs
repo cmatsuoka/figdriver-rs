@@ -25,6 +25,7 @@ fn main() -> Result<(), Error> {
   -d, --dir <dir>          set the default font directory
   -f, --font <name>        specify the figfont to use
   -h, --help               display usage information and exit
+  -I, --infocode <num>     print info for infocode (0-5) and exit
   -k, --kern               use kerning mode to display characters
   -l, --left               left-align the output
   -m, --layout-mode <num>  override the font layout mode
@@ -40,6 +41,9 @@ fn main() -> Result<(), Error> {
   -w, --width <cols>       set the output width");
         return Ok(());
     }
+
+    let infocode: Option<i32> = args.opt_value_from_str::<i32>(["-I", "--infocode"])
+        .map_err(|e| Error::Cli(e.to_string()))?;
 
     let font_dir = args.opt_value_from_str::<String>(["-d", "--dir"])
         .map_err(|e| Error::Cli(e.to_string()))?
@@ -73,6 +77,12 @@ fn main() -> Result<(), Error> {
         (figdriver::Align::Right,  &["-r", "--right"]),
     ]);
 
+    if let Some(code) = infocode {
+        let display_font = font_name.as_deref().unwrap_or(DEFAULT_FONT);
+        print_infocode(code, &font_dir, display_font, width);
+        return Ok(());
+    }
+
     let mut fontpath = PathBuf::from(font_dir);
     if let Some(name) = font_name {
         fontpath = find_font(fontpath, name);
@@ -97,6 +107,49 @@ fn main() -> Result<(), Error> {
             smush_force: use_smush_force,
             layout_mode,
         })
+}
+
+fn print_infocode(code: i32, font_dir: &str, font_name: &str, width: usize) {
+    match code {
+        0 => {
+            println!("figlet {}", env!("CARGO_PKG_VERSION"));
+        }
+        1 => {
+            print_version_int();
+        }
+        2 => {
+            println!("{}", font_dir);
+        }
+        3 => {
+            println!("{}", strip_font_suffix(font_name));
+        }
+        4 => {
+            println!("{}", width);
+        }
+        5 => {
+            println!("flf2");
+        }
+        _ => {}
+    }
+}
+
+fn print_version_int() {
+    let ver = env!("CARGO_PKG_VERSION");
+    let parts: Vec<&str> = ver.split('.').collect();
+    let major = parts.get(0).and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    let minor = parts.get(1).and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    let patch = parts.get(2).and_then(|s| s.parse::<u32>().ok()).unwrap_or(0);
+    println!("{}", major * 10000 + minor * 100 + patch);
+}
+
+fn strip_font_suffix(name: &str) -> &str {
+    if let Some(stripped) = name.strip_suffix(".flf") {
+        stripped
+    } else if let Some(stripped) = name.strip_suffix(".tlf") {
+        stripped
+    } else {
+        name
+    }
 }
 
 fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
