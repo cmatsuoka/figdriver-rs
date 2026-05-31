@@ -21,7 +21,7 @@ fn line_full() {
     assert!(!wr.push_str("is").is_err());
     assert!(!wr.push_str(" ").is_err());
     assert!(wr.push_str("a").is_err());
-    assert_eq!(wr.get(), vec!["this is"]);
+    assert_eq!(wr.get(), vec!["this is "]);
 }
 
 #[test]
@@ -184,16 +184,14 @@ fn rtl_consecutive_blanks_collapsed_at_wrap() {
 #[test]
 fn rtl_leading_blanks_preserved() {
     // Blanks at the start of input should be rendered as FIGcharacters in RTL mode.
-    // In RTL, leading blanks become trailing rendered spaces → get() right-trims them.
-    // Verify the blanks were smushed (len reflects them) before get() trims.
+    // In RTL, leading blanks become trailing rendered spaces, preserved in output (figlet behavior).
     new_smusher!(sm, "tests/test.flf");
     sm.right2left = true;
     let mut wr = figdriver::Wrapper::new(sm, 30);
     wr.wrap_str("   ", &dummy);
     wr.wrap_str("x", &dummy);
     // After RTL smushing: "x   " (x prepended left of 3 spaces)
-    // get() right-trims → "x". The blanks were rendered but trimmed.
-    assert_eq!(wr.get(), vec!["x"]);
+    assert_eq!(wr.get(), vec!["x   "]);
 }
 
 #[test]
