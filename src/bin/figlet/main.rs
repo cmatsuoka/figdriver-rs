@@ -53,8 +53,9 @@ fn main() -> Result<(), Error> {
   -v, --version            display version information and exit
   -W, --full-width         display characters in full width
   -w, --width <cols>       set the output width
-  -x, --default-justification  default justification (left for LTR, right for RTL)
-  -X, --font-direction         use font file's default print direction");
+  -X, --font-direction     use font file's default print direction
+  -x, --default-justification
+                           default justification (left for LTR, right for RTL)");
         return Ok(());
     }
 
