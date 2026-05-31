@@ -272,7 +272,7 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
         sm.mode = figdriver::SMUSH_KERN;
     }
 
-   if cfg.full_width && !cfg.smush && !cfg.smush_force {
+    if cfg.full_width && !cfg.smush && !cfg.smush_force {
         sm.full_width = true;
     }
 
