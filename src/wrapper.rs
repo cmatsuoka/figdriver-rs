@@ -89,8 +89,9 @@ impl<'a> Wrapper<'a> {
         // hardblanks with spaces (figlet never trims output).
         let max_w = v.iter().map(|l| l.chars().count()).max().unwrap_or(0);
         for line in &mut v {
-            while line.chars().count() < max_w {
-                line.push(' ');
+            let len = line.chars().count();
+            if len < max_w {
+                line.extend(std::iter::repeat(' ').take(max_w - len));
             }
         }
         self.sm.replace_hardblanks(&mut v);
