@@ -91,7 +91,7 @@ impl<'a> Wrapper<'a> {
         for line in &mut v {
             let len = line.chars().count();
             if len < max_w {
-                line.extend(std::iter::repeat(' ').take(max_w - len));
+                line.extend(std::iter::repeat_n(' ', max_w - len));
             }
         }
         self.sm.replace_hardblanks(&mut v);
