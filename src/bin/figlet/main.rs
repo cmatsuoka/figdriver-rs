@@ -106,12 +106,6 @@ fn main() -> Result<(), Error> {
         return Ok(());
     }
 
-    if let Some(code) = infocode {
-        let display_font = font_name.as_deref().unwrap_or(DEFAULT_FONT);
-        print_infocode(code, &font_dir, display_font, width);
-        return Ok(());
-    }
-
     let mut fontpath = PathBuf::from(font_dir);
     if let Some(name) = font_name {
         fontpath = find_font(fontpath, name);
