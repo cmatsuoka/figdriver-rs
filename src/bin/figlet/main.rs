@@ -161,7 +161,7 @@ fn print_infocode(code: i32, font_dir: &str, font_name: &str, width: usize) {
 fn print_version_int() {
     let major = env!("CARGO_PKG_VERSION_MAJOR").parse::<u32>().unwrap_or(0);
     let minor = env!("CARGO_PKG_VERSION_MINOR").parse::<u32>().unwrap_or(0);
-    let patch = env!("CARGO_PKG_VERSION_PATCH").parse::<u32>().unwrap_or(0);
+    let patch = env!("CARGO_PKG_VERSION_PATCH").chars().take_while(|c| c.is_ascii_digit()).collect::<String>().parse::<u32>().unwrap_or(0);
     println!("{}", major * 10000 + minor * 100 + patch);
 }
 
