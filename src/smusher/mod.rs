@@ -1,5 +1,6 @@
 use std::cmp::min;
 pub use crate::figfont::{FIGchar, FIGfont};
+use crate::flc::FlcPipeline;
 
 mod charsmush;
 pub mod strsmush;
@@ -18,6 +19,7 @@ pub struct Smusher<'a> {
     pub right2left: bool,
     font          : &'a FIGfont,
     output        : Vec<String>,
+    control       : Option<&'a FlcPipeline>,
 }
 
 impl<'a> Smusher<'a> {
@@ -44,12 +46,18 @@ impl<'a> Smusher<'a> {
     /// # }
     /// ```
     pub fn new(font: &'a FIGfont) -> Self {
+        Self::with_control(font, None)
+    }
+
+    /// Create a new smusher with an optional control file pipeline.
+    pub fn with_control(font: &'a FIGfont, control: Option<&'a FlcPipeline>) -> Self {
         let mut sm = Smusher{
             font,
             mode      : font.layout,
             full_width: font.old_layout == -1,
             right2left: font.right_to_left,
             output    : Vec::new(),
+            control,
         };
         for _ in 0..sm.font.height {
             sm.output.push(String::new());
@@ -101,6 +109,15 @@ impl<'a> Smusher<'a> {
     /// Returns `true` if the character was rendered, `false` if it was missing from the font
     /// and skipped.
     pub fn push(&mut self, ch: char) -> bool {
+        let code = ch as i32;
+        let code = if let Some(ctrl) = self.control {
+            ctrl.apply(code)
+        } else {
+            code
+        };
+        // Convert mapped code to char. Invalid codes (negative, > 0x10FFFF) fall back
+        // to the original character, since they have no valid Unicode mapping.
+        let ch = char::from_u32(code as u32).unwrap_or(ch);
         if let Some(fc) = self.font.get(ch) {
             self.output = smush(&self.output, fc, self.font.hardblank, self.full_width, self.mode, self.right2left);
             true

@@ -2,7 +2,7 @@ use std::ffi::OsString;
 use std::io::{self, BufRead};
 use std::path::{Path, PathBuf, is_separator};
 use regex::Regex;
-use figdriver::Error;
+use figdriver::{Error, FlcPipeline};
 
 mod cli;
 
@@ -34,6 +34,7 @@ fn main() -> Result<(), Error> {
 
     if args.contains(["-h", "--help"]) {
         println!("Usage: figlet [options] message
+  -C, --control <file>    specify a control file (can be repeated)
   -c, --center             center the output horizontally
   -d, --dir <dir>          set the default font directory
   -f, --font <name>        specify the figfont to use
@@ -55,7 +56,7 @@ fn main() -> Result<(), Error> {
   -w, --width <cols>       set the output width
   -X, --font-direction     use font file's default print direction
   -x, --default-justification
-                           default justification (left for LTR, right for RTL)");
+                            default justification (left for LTR, right for RTL)");
         return Ok(());
     }
 
@@ -68,6 +69,8 @@ fn main() -> Result<(), Error> {
 
     let font_name = args.opt_value_from_str::<String>(["-f", "--font"])
         .map_err(|e| Error::Cli(e.to_string()))?;
+
+    let control_files: Vec<String> = args.collect_values(["-C", "--control"]);
 
     let width: usize = args.opt_value_from_str::<usize>(["-w", "--width"])
         .map_err(|e| Error::Cli(e.to_string()))?
@@ -106,12 +109,14 @@ fn main() -> Result<(), Error> {
         return Ok(());
     }
 
-    let mut fontpath = PathBuf::from(font_dir);
+    let mut fontpath = PathBuf::from(&font_dir);
     if let Some(name) = font_name {
-        fontpath = find_font(fontpath, name);
+        fontpath = find_font(PathBuf::from(&font_dir), name);
     } else {
         fontpath.push(DEFAULT_FONT);
     }
+
+    let control_paths: Vec<PathBuf> = control_files.iter().map(|f| find_control(&font_dir, f.clone())).collect();
 
     let msg: String = args.finish().into_iter()
         .filter_map(|s: OsString| s.into_string().ok())
@@ -129,6 +134,7 @@ fn main() -> Result<(), Error> {
             smush: use_smush,
             smush_force: use_smush_force,
             layout_mode,
+            control_paths,
         })
 }
 
@@ -188,6 +194,24 @@ fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
     PathBuf::from(name)
 }
 
+fn find_control(font_dir: &str, mut name: String) -> PathBuf {
+    if !name.ends_with(".flc") {
+        name = format!("{}.flc", name);
+    }
+
+    if name.starts_with(is_separator) {
+        return PathBuf::from(name);
+    }
+
+    let mut path = PathBuf::from(font_dir);
+    path.push(&name);
+    if path.exists() {
+        return path;
+    }
+
+    PathBuf::from(name)
+}
+
 /// Text print direction (controlled by -L, -R, -X)
 #[derive(Clone)]
 enum PrintDir {
@@ -223,6 +247,7 @@ struct RunConfig {
     smush: bool,
     smush_force: bool,
     layout_mode: Option<i32>,
+    control_paths: Vec<PathBuf>,
 }
 
 fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
@@ -231,7 +256,14 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     }
 
     let font = figdriver::FIGfont::from_path(path)?;
-    let mut sm = figdriver::Smusher::new(&font);
+
+    let control = if cfg.control_paths.is_empty() {
+        None
+    } else {
+        Some(FlcPipeline::from_paths(&cfg.control_paths)?)
+    };
+
+    let mut sm = figdriver::Smusher::with_control(&font, control.as_ref());
 
     if let Some(m) = cfg.layout_mode {
         match m {
