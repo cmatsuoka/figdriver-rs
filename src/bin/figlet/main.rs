@@ -172,13 +172,9 @@ fn print_version_int() {
 }
 
 fn strip_font_suffix(name: &str) -> &str {
-    if let Some(stripped) = name.strip_suffix(".flf") {
-        stripped
-    } else if let Some(stripped) = name.strip_suffix(".tlf") {
-        stripped
-    } else {
-        name
-    }
+    name.strip_suffix(".flf")
+        .or_else(|| name.strip_suffix(".tlf"))
+        .unwrap_or(name)
 }
 
 fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
