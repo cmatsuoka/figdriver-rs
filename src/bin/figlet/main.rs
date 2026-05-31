@@ -41,6 +41,7 @@ fn main() -> Result<(), Error> {
   -I, --infocode <num>     print info for infocode (0-5) and exit
   -k, --kern               use kerning mode to display characters
   -l, --left               left-align the output
+  -L, --left-to-right      force left-to-right print direction
   -m, --layout-mode <num>  override the font layout mode
   -n, --normal             use normal mode (each newline causes a line break)
   -o, --overlap            use character overlapping mode
@@ -51,7 +52,9 @@ fn main() -> Result<(), Error> {
   -S, --smush              force smushing mode to display characters
   -v, --version            display version information and exit
   -W, --full-width         display characters in full width
-  -w, --width <cols>       set the output width");
+  -w, --width <cols>       set the output width
+  -x                       default justification (left for LTR, right for RTL)
+  -X                       use font file's default print direction");
         return Ok(());
     }
 
@@ -72,7 +75,6 @@ fn main() -> Result<(), Error> {
     let use_kern = args.contains(["-k", "--kern"]);
     let use_overlap = args.contains(["-o", "--overlap"]);
     let use_full_width = args.contains(["-W", "--full-width"]);
-    let use_right_to_left = args.contains(["-R", "--right-to-left"]);
     let use_smush = args.contains(["-s", "--smush-default"]);
     let use_smush_force = args.contains(["-S", "--smush"]);
 
@@ -84,11 +86,18 @@ fn main() -> Result<(), Error> {
         (false, &["-n", "--normal"]),
     ]).unwrap_or(false);
 
-    let alignment = args.last_of(&[
-        (figdriver::Align::Center, &["-c", "--center"]),
-        (figdriver::Align::Left,   &["-l", "--left"]),
-        (figdriver::Align::Right,  &["-r", "--right"]),
-    ]);
+    let print_dir = args.last_of(&[
+        (PrintDir::Ltr,         &["-L", "--left-to-right"]),
+        (PrintDir::Rtl,         &["-R", "--right-to-left"]),
+        (PrintDir::FontDefault, &["-X"]),
+    ]).unwrap_or(PrintDir::FontDefault);
+
+    let justify = args.last_of(&[
+        (Justify::Left,    &["-l", "--left"]),
+        (Justify::Right,   &["-r", "--right"]),
+        (Justify::Center,  &["-c", "--center"]),
+        (Justify::Default, &["-x"]),
+    ]).unwrap_or(Justify::Default);
 
     if let Some(code) = infocode {
         let display_font = font_name.as_deref().unwrap_or(DEFAULT_FONT);
@@ -112,10 +121,10 @@ fn main() -> Result<(), Error> {
             kern: use_kern,
             overlap: use_overlap,
             full_width: use_full_width,
-            right_to_left: use_right_to_left,
+            print_dir,
             width,
             paragraph,
-            alignment,
+            justify,
             smush: use_smush,
             smush_force: use_smush_force,
             layout_mode,
@@ -184,14 +193,38 @@ fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
     PathBuf::from(name)
 }
 
+/// Text print direction (controlled by -L, -R, -X)
+#[derive(Clone)]
+enum PrintDir {
+    /// Force left-to-right (-L)
+    Ltr,
+    /// Force right-to-left (-R)
+    Rtl,
+    /// Use font's default (-X, the default)
+    FontDefault,
+}
+
+/// Output justification (controlled by -l, -r, -c, -x)
+#[derive(Clone)]
+enum Justify {
+    /// Flush left (-l)
+    Left,
+    /// Flush right (-r)
+    Right,
+    /// Center (-c)
+    Center,
+    /// Follow print direction: left for LTR, right for RTL (-x, the default)
+    Default,
+}
+
 struct RunConfig {
     kern: bool,
     overlap: bool,
     full_width: bool,
-    right_to_left: bool,
+    print_dir: PrintDir,
     width: usize,
     paragraph: bool,
-    alignment: Option<figdriver::Align>,
+    justify: Justify,
     smush: bool,
     smush_force: bool,
     layout_mode: Option<i32>,
@@ -244,22 +277,38 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
         sm.mode = figdriver::SMUSH_KERN;
     }
 
-    if cfg.full_width && !cfg.smush && !cfg.smush_force {
+   if cfg.full_width && !cfg.smush && !cfg.smush_force {
         sm.full_width = true;
     }
 
-    if cfg.right_to_left {
-        sm.right2left = true;
-    }
+    let resolved_rtl = match cfg.print_dir {
+        PrintDir::Ltr => false,
+        PrintDir::Rtl => true,
+        PrintDir::FontDefault => sm.right2left,
+    };
+    sm.right2left = resolved_rtl;
 
     // Subtract 1 from width to match figlet's quirk: figlet treats `-w N` as
     // "allow lines up to N-1 characters" rather than N characters.
     let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1);
 
-    if let Some(a) = cfg.alignment {
-        wr.align = a;
-    } else if cfg.right_to_left {
-        wr.align = figdriver::Align::Right;
+    match cfg.justify {
+        Justify::Left => {
+            wr.align = figdriver::Align::Left;
+        }
+        Justify::Right => {
+            wr.align = figdriver::Align::Right;
+        }
+        Justify::Center => {
+            wr.align = figdriver::Align::Center;
+        }
+        Justify::Default => {
+            wr.align = if resolved_rtl {
+                figdriver::Align::Right
+            } else {
+                figdriver::Align::Left
+            };
+        }
     }
 
     let re = Regex::new(r"(\S+|\s+)").unwrap();
