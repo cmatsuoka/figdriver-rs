@@ -83,21 +83,19 @@ impl<'a> Wrapper<'a> {
             self.sm.trim(self.width);
         }
 
-        let mut v = self.sm.get();
+        let mut v = self.sm.get_raw();
 
-        // Right-trim each line to remove trailing whitespace from the
-        // smusher, then pad the block to its own widest line (figlet convention).
-        for line in &mut v {
-            *line = line.trim_end().to_string();
-        }
+        // Pad the block to its own widest line (figlet convention), then replace
+        // hardblanks with spaces (figlet never trims output).
         let max_w = v.iter().map(|l| l.chars().count()).max().unwrap_or(0);
         for line in &mut v {
             while line.chars().count() < max_w {
                 line.push(' ');
             }
         }
+        self.sm.replace_hardblanks(&mut v);
 
-        let w = self.width - max_w;
+        let w = self.width.saturating_sub(max_w);
 
         match self.align {
             Align::Left   => v.to_vec(),

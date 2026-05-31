@@ -20,8 +20,14 @@ pub struct Smusher<'a> {
     output        : Vec<String>,
 }
 
-
 impl<'a> Smusher<'a> {
+    /// Replace hardblanks in the given lines with spaces.
+    pub fn replace_hardblanks(&self, lines: &mut [String]) {
+        let hb = self.font.hardblank;
+        for line in lines {
+            *line = line.replace(&hb.to_string(), " ");
+        }
+    }
 
     /// Create a new smusher using the specified FIGfont.
     ///
@@ -51,13 +57,14 @@ impl<'a> Smusher<'a> {
         sm
     }
 
-    /// Get the contents of the output buffer.
+    /// Get the contents of the output buffer, replacing hardblanks with spaces.
     pub fn get(&self) -> Vec<String> {
-        let mut res: Vec<String> = Vec::new();
-        for line in &self.output {
-            res.push(line.replace(&self.font.hardblank.to_string(), " "));
-        }
-        res
+        self.output.iter().map(|s| s.replace(&self.font.hardblank.to_string(), " ")).collect()
+    }
+
+    /// Get the contents of the output buffer, preserving hardblanks for further processing.
+    pub fn get_raw(&self) -> Vec<String> {
+        self.output.to_vec()
     }
 
     /// Verify whether output buffer is empty.
