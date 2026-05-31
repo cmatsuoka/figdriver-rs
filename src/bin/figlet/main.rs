@@ -10,6 +10,19 @@ const FONT_DIR     : &str = "/usr/share/figlet";
 const DEFAULT_FONT : &str = "standard.flf";
 const DEFAULT_WIDTH: usize = 80;
 
+const LICENSE: &str = include_str!("../../../LICENSE");
+
+const fn first_line(s: &str) -> &str {
+    let bytes = s.as_bytes();
+    let mut end = 0;
+    while end < bytes.len() && bytes[end] != b'\n' {
+        end += 1;
+    }
+    s.split_at(end).0
+}
+
+const COPYRIGHT_NOTICE: &str = first_line(LICENSE);
+
 
 fn main() -> Result<(), Error> {
     let mut args = cli::Args::from_env();
@@ -111,8 +124,9 @@ fn main() -> Result<(), Error> {
 
 fn print_infocode(code: i32, font_dir: &str, font_name: &str, width: usize) {
     match code {
-        0 => {
-            println!("figlet {}", env!("CARGO_PKG_VERSION"));
+       0 => {
+            println!("{}", COPYRIGHT_NOTICE);
+            println!("Version: {}", env!("CARGO_PKG_VERSION"));
         }
         1 => {
             print_version_int();
