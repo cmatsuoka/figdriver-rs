@@ -50,6 +50,7 @@ fn main() -> Result<(), Error> {
   -r, --right              right-align the output
   -s, --smush-default      smushing respecting font default layout mode
   -S, --smush              force smushing mode to display characters
+  -t                       use terminal width for output width
   -v, --version            display version information and exit
   -W, --full-width         display characters in full width
   -w, --width <cols>       set the output width
@@ -70,10 +71,23 @@ fn main() -> Result<(), Error> {
         .map_err(|e| Error::Cli(e.to_string()))?;
 
     let control_files: Vec<String> = args.collect_values(["-C", "--control"]);
-
-    let width: usize = args.opt_value_from_str::<usize>(["-w", "--width"])
+    let use_terminal_width = args.contains("-t");
+    let width: usize = match args.opt_value_from_str::<usize>(["-w", "--width"])
         .map_err(|e| Error::Cli(e.to_string()))?
-        .unwrap_or(DEFAULT_WIDTH);
+    {
+        Some(w) => w,
+        None => {
+            if use_terminal_width {
+                if let Some((w, _)) = terminal_size::terminal_size() {
+                    w.0 as usize
+                } else {
+                    DEFAULT_WIDTH
+                }
+            } else {
+                DEFAULT_WIDTH
+            }
+        }
+    };
 
     let use_kern = args.contains(["-k", "--kern"]);
     let use_overlap = args.contains(["-o", "--overlap"]);
