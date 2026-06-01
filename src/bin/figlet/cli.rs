@@ -85,4 +85,9 @@ impl Args {
         }
         values
     }
+
+    /// Returns true if `--` (end-of-options marker) appeared in original args.
+    pub fn has_double_dash(&self) -> bool {
+        self.args.iter().any(|arg| arg.as_os_str() == "--")
+    }
 }
