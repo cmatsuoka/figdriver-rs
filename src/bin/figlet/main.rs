@@ -70,12 +70,13 @@ fn main() -> Result<(), Error> {
     let font_name = args.opt_value_from_str::<String>(["-f", "--font"])
         .map_err(|e| Error::Cli(e.to_string()))?;
 
+    let use_terminal_width = args.contains("-t");
     let width: usize = match args.opt_value_from_str::<usize>(["-w", "--width"])
         .map_err(|e| Error::Cli(e.to_string()))?
     {
         Some(w) => w,
         None => {
-            if args.contains("-t") {
+            if use_terminal_width {
                 if let Some((w, _)) = terminal_size::terminal_size() {
                     w.0 as usize
                 } else {
