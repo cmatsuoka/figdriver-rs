@@ -33,7 +33,7 @@ fn main() -> Result<(), Error> {
 
     if args.contains(["-h", "--help"]) {
         println!("Usage: figlet [options] message
-  -C, --control <file>    specify a control file (can be repeated)
+  -C, --control <file>     specify a control file (can be repeated)
   -c, --center             center the output horizontally
   -d, --dir <dir>          set the default font directory
   -f, --font <name>        specify the figfont to use
@@ -50,13 +50,12 @@ fn main() -> Result<(), Error> {
   -r, --right              right-align the output
   -s, --smush-default      smushing respecting font default layout mode
   -S, --smush              force smushing mode to display characters
-  -t                       use terminal width for output width
+  -t, --terminal-width     use terminal width for output width
   -v, --version            display version information and exit
   -W, --full-width         display characters in full width
   -w, --width <cols>       set the output width
   -X, --font-direction     use font file's default print direction
-  -x, --default-justification
-                            default justification (left for LTR, right for RTL)");
+  -x, --default-align      default justification (left for LTR, right for RTL)");
         return Ok(());
     }
 
@@ -71,7 +70,7 @@ fn main() -> Result<(), Error> {
         .map_err(|e| Error::Cli(e.to_string()))?;
 
     let control_files: Vec<String> = args.collect_values(["-C", "--control"]);
-    let use_terminal_width = args.contains("-t");
+    let use_terminal_width = args.contains(["-t", "--terminal-width"]);
     let width: usize = match args.opt_value_from_str::<usize>(["-w", "--width"])
         .map_err(|e| Error::Cli(e.to_string()))?
     {
@@ -113,7 +112,7 @@ fn main() -> Result<(), Error> {
         (Justify::Left,    &["-l", "--left"]),
         (Justify::Right,   &["-r", "--right"]),
         (Justify::Center,  &["-c", "--center"]),
-        (Justify::Default, &["-x", "--default-justification"]),
+        (Justify::Default, &["-x", "--default-align"]),
     ]).unwrap_or(Justify::Default);
 
     if let Some(code) = infocode {
