@@ -227,30 +227,33 @@ impl<'a> Wrapper<'a> {
 
         let after_wrap = std::mem::replace(&mut self.just_flushed, false);
         let space = self.pending_space.take();
+        let commit_space = space.is_some() && !after_wrap && !self.buffer.is_empty();
 
-        // Commit accumulated whitespace if we're not at a wrap point.
+        // Try to commit accumulated whitespace before adding the word.
         // Save buffer state before spaces so that, if the subsequent word push
         // fails, the flush outputs content without trailing whitespace (spec
         // says blanks at wrap points are discarded).
-        if let Some(ref sp) = space {
-            if !after_wrap && !self.buffer.is_empty() {
-                let pre_space_buffer = self.buffer.clone();
-                if self.push_str(sp).is_err() {
-                    flush(&self.get());
-                    self.clear();
-                    self.push_str(sp).ok();
-                }
-                if self.push_str(s).is_err() {
-                    self.sm.clear();
-                    self.sm.push_str(&pre_space_buffer);
-                    flush(&self.get());
-                    self.clear();
-                    if self.push_str(s).is_err() {
-                        self.wrap_word(s, flush);
-                    }
-                }
+        if commit_space {
+            let sp = space.unwrap();
+            let pre_space_buffer = self.buffer.clone();
+            if self.push_str(&sp).is_err() {
+                flush(&self.get());
+                self.clear();
+                self.push_str(&sp).ok();
             }
-        } else if self.push_str(s).is_err() {
+            if self.push_str(s).is_err() {
+                self.sm.clear();
+                self.sm.push_str(&pre_space_buffer);
+                flush(&self.get());
+                self.clear();
+                // Fall through to try word on fresh buffer
+            } else {
+                return;
+            }
+        }
+
+        // Try word on current or fresh buffer; wrap at character level if needed.
+        if self.push_str(s).is_err() {
             if !self.buffer.is_empty() {
                 flush(&self.get());
                 self.clear();
