@@ -221,7 +221,7 @@ impl<'a> Wrapper<'a> {
                 self.push_str(s).ok();
                 return;
             }
-            self.pending_space = Some(self.pending_space.clone().unwrap_or_default() + s);
+            self.pending_space.get_or_insert_with(String::new).push_str(s);
             return;
         }
 
@@ -247,8 +247,6 @@ impl<'a> Wrapper<'a> {
                     self.clear();
                     if self.push_str(s).is_err() {
                         self.wrap_word(s, flush);
-                        self.just_flushed = false;
-                        return;
                     }
                 }
             }
@@ -259,8 +257,6 @@ impl<'a> Wrapper<'a> {
             }
             if self.push_str(s).is_err() {
                 self.wrap_word(s, flush);
-                self.just_flushed = false;
-                return;
             }
         }
     }
