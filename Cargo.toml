@@ -16,6 +16,7 @@ doc = false
 [dependencies]
 pico-args = { version = "0.5", features = ["combined-flags", "short-space-opt", "eq-separator"] }
 regex = "1"
+terminal_size = "0.4"
 
 [profile.release]
 lto = true
