@@ -31,6 +31,14 @@ fn double_dash_allows_dash_message() {
 }
 
 #[test]
+fn invalid_flag_before_double_dash_rejected() {
+    let mut cmd = common::cmd_figlet(&["-z", "--", "Hello"]);
+    let output = cmd.output().unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("Invalid flag"));
+}
+
+#[test]
 fn double_dash_does_not_leak_into_message() {
     let output = common::run_no_trim(&["-f", "small", "--", "Hello"]);
     assert_eq!(output, [
