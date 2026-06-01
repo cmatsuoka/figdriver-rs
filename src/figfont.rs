@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use crate::Error;
+use crate::zip::{is_zip, decompress_zip};
 
 pub const SMUSH_EQUAL    : u32 = 1;
 pub const SMUSH_UNDERLINE: u32 = 2;
@@ -40,6 +41,7 @@ pub struct FIGfont {
 impl FIGfont {
 
     /// Create a new FIGfont from the specified .flf or .tlf file.
+    /// Automatically detects and decompresses ZIP-compressed fonts.
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let mut font = Self::default();
         font.load(path)?;
@@ -63,10 +65,22 @@ impl FIGfont {
     } 
 
     /// Load a font from the given .flf or .tlf file.
+    /// Automatically detects and decompresses ZIP-compressed fonts.
     fn load<P: AsRef<Path>>(&mut self, path: P) -> Result<&Self, Error> {
-        let file = File::open(path)?;
-        let mut f = BufReader::new(&file);
+        let path = path.as_ref();
 
+        if is_zip(path) {
+            let mut reader = decompress_zip(path).map_err(|_| Error::FontFormat("invalid ZIP archive"))?;
+            return self.load_from_reader(&mut reader);
+        }
+
+        let file = File::open(path)?;
+        let mut reader = BufReader::new(&file);
+        self.load_from_reader(&mut reader)
+    }
+
+    /// Load font data from a reader.
+    fn load_from_reader<R: BufRead>(&mut self, f: &mut R) -> Result<&Self, Error> {
         let mut line = String::new();
 
         f.read_line(&mut line)?;
@@ -81,7 +95,7 @@ impl FIGfont {
         // Load required characters
         for i in (32..127).chain(vec![196, 214, 220, 228, 246, 252, 223]) {
             let mut c = FIGchar::new();
-            c.load(&mut f, self.height)?;
+            c.load(f, self.height)?;
             self.chars.insert(i, c);
         }
 
@@ -96,7 +110,7 @@ impl FIGfont {
             };
 
             let mut c = FIGchar::new();
-            c.load(&mut f, self.height)?;
+            c.load(f, self.height)?;
             self.chars.insert(i32_from_str(code)?, c);
         }
 
@@ -394,6 +408,20 @@ mod tests {
         assert!(space.is_some());
         assert!(tab.is_some());
         assert_eq!(space.unwrap().get(), tab.unwrap().get());
+    }
+
+    // Loading a ZIP-compressed font produces the same result as the uncompressed file
+    #[test]
+    fn test_font_load_zip() {
+        let path = format!(
+            "{}/tests/fixtures/standard.flf.zip",
+            env!("CARGO_MANIFEST_DIR")
+        );
+        let font = FIGfont::from_path(&path).unwrap();
+        assert_eq!(font.height, 6);
+        assert_eq!(font.hardblank, '$');
+        assert!(font.get('A').is_some());
+        assert!(font.get('\u{00C4}').is_some());
     }
 
     // Loaded font exposes correct height, hardblank, and layout values

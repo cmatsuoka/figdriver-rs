@@ -14,7 +14,7 @@ fn dummy(_: &[String]) {
 
 #[test]
 fn line_full() {
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     let mut wr = figdriver::Wrapper::new(sm, 8);
     assert!(!wr.push_str("this").is_err());
     assert!(!wr.push_str(" ").is_err());
@@ -26,7 +26,7 @@ fn line_full() {
 
 #[test]
 fn line_wrap() {
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     let mut wr = figdriver::Wrapper::new(sm, 8);
     [ "this", " ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(&x, &dummy));
     assert_eq!(wr.get(), vec!["a test"]);
@@ -34,7 +34,7 @@ fn line_wrap() {
 
 #[test]
 fn wrap_align_left() {
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     let mut wr = figdriver::Wrapper::new(sm, 12);
     wr.align = figdriver::Align::Left;
     [ "this", " ", "is", " ", "a", " ", "new", " ", "test" ].iter().for_each(|x| wr.wrap_str(&x, &dummy));
@@ -43,7 +43,7 @@ fn wrap_align_left() {
 
 #[test]
 fn wrap_align_center() {
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     let mut wr = figdriver::Wrapper::new(sm, 12);
     wr.align = figdriver::Align::Center;
     [ "this", " ", "is", " ", "a", " ", "new", " ", "test" ].iter().for_each(|x| wr.wrap_str(&x, &dummy));
@@ -52,7 +52,7 @@ fn wrap_align_center() {
 
 #[test]
 fn wrap_align_right() {
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     let mut wr = figdriver::Wrapper::new(sm, 12);
     wr.align = figdriver::Align::Right;
     [ "this", " ", "is", " ", "a", " ", "new", " ", "test" ].iter().for_each(|x| wr.wrap_str(&x, &dummy));
@@ -154,7 +154,7 @@ fn right_to_left() {
 fn consecutive_blanks_collapsed_at_wrap() {
     // Multiple blanks at a wrap point should be discarded per spec.
     // With preserved whitespace, "this   is" exceeds width 8, wrapping earlier.
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     let mut wr = figdriver::Wrapper::new(sm, 8);
     [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
     assert_eq!(wr.get(), vec!["test"]);
@@ -163,7 +163,7 @@ fn consecutive_blanks_collapsed_at_wrap() {
 #[test]
 fn leading_blanks_preserved() {
     // Blanks at the start of input should be rendered as FIGcharacters.
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     let mut wr = figdriver::Wrapper::new(sm, 30);
     wr.wrap_str("   ", &dummy);
     wr.wrap_str("x", &dummy);
@@ -175,7 +175,7 @@ fn rtl_consecutive_blanks_collapsed_at_wrap() {
     // Multiple blanks at a wrap point should be discarded in RTL mode.
     // In RTL mode with the test font, text is reversed (chars prepended left).
     // With preserved whitespace, "this   is" exceeds width 8, wrapping earlier.
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     sm.right2left = true;
     let mut wr = figdriver::Wrapper::new(sm, 8);
     [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
@@ -186,7 +186,7 @@ fn rtl_consecutive_blanks_collapsed_at_wrap() {
 fn rtl_leading_blanks_preserved() {
     // Blanks at the start of input should be rendered as FIGcharacters in RTL mode.
     // In RTL, leading blanks become trailing rendered spaces, preserved in output (figlet behavior).
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     sm.right2left = true;
     let mut wr = figdriver::Wrapper::new(sm, 30);
     wr.wrap_str("   ", &dummy);
@@ -198,7 +198,7 @@ fn rtl_leading_blanks_preserved() {
 #[test]
 fn rtl_inter_word_blanks_preserved() {
     // Multiple blanks between words should be preserved in RTL mode.
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     sm.right2left = true;
     let mut wr = figdriver::Wrapper::new(sm, 30);
     [ "a", "   ", "b" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
@@ -208,7 +208,7 @@ fn rtl_inter_word_blanks_preserved() {
 #[test]
 fn rtl_blank_after_wrap_discarded() {
     // Whitespace immediately after a flush should be discarded in RTL mode.
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     sm.right2left = true;
     let mut wr = figdriver::Wrapper::new(sm, 4);
     [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
@@ -219,7 +219,7 @@ fn rtl_blank_after_wrap_discarded() {
 #[test]
 fn inter_word_blanks_preserved() {
     // Multiple blanks between words should be preserved.
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     let mut wr = figdriver::Wrapper::new(sm, 30);
     [ "a", "   ", "b" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
     assert_eq!(wr.get(), vec!["a   b"]);
@@ -228,7 +228,7 @@ fn inter_word_blanks_preserved() {
 #[test]
 fn blank_after_wrap_discarded() {
     // Whitespace immediately after a flush should be discarded.
-    new_smusher!(sm, "tests/test.flf");
+    new_smusher!(sm, "tests/fixtures/test.flf");
     let mut wr = figdriver::Wrapper::new(sm, 4);
     [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
     assert_eq!(wr.get(), vec!["test"]);

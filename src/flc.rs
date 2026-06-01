@@ -2,6 +2,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use crate::Error;
+use crate::zip::{is_zip, decompress_zip};
 
 /// A single transformation command within a stage.
 #[derive(Debug, Clone)]
@@ -87,16 +88,28 @@ pub struct FlcPipeline {
 
 impl Flc {
     /// Parse a control file from the given path.
+    /// Automatically detects and decompresses ZIP-compressed files.
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(&file);
+        let path = path.as_ref();
 
+        if is_zip(path) {
+            let reader = decompress_zip(path).map_err(|_| Error::ControlFormat("failed to decompress ZIP"))?;
+            Self::load_from_reader(reader.lines())
+        } else {
+            let file = File::open(path)?;
+            let reader = BufReader::new(file);
+            Self::load_from_reader(reader.lines())
+        }
+    }
+
+    /// Parse control file data from a line iterator.
+    fn load_from_reader<L: IntoIterator<Item = std::io::Result<String>>>(lines: L) -> Result<Self, Error> {
         let mut stages: Vec<TransformationStage> = vec![TransformationStage { commands: Vec::new() }];
         let mut encoding = InputEncoding::Default;
         let mut iso2022 = Iso2022Settings::default();
         let mut first_line = true;
 
-        for line_result in reader.lines() {
+        for line_result in lines {
             let line = line_result?;
             let line = line.trim_end();
 
@@ -975,5 +988,14 @@ mod tests {
         let path = format!("{}/fonts/jis0201.flc", env!("CARGO_MANIFEST_DIR"));
         let flc = Flc::from_path(&path).unwrap();
         assert_eq!(flc.apply(0x4A005C), 0xA5);
+    }
+
+    // Loading a ZIP-compressed FLC produces the same result as the uncompressed file
+    #[test]
+    fn test_flc_load_zip() {
+        let path = format!("{}/tests/fixtures/upper.flc.zip", env!("CARGO_MANIFEST_DIR"));
+        let flc = Flc::from_path(&path).unwrap();
+        assert_eq!(flc.apply('a' as i32), 'A' as i32);
+        assert_eq!(flc.apply('z' as i32), 'Z' as i32);
     }
 }
