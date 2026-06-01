@@ -13,6 +13,7 @@ mod figfont;
 mod wrapper;
 mod smusher;
 mod flc;
+mod zip;
 
 #[derive(Debug)]
 pub enum Error {
