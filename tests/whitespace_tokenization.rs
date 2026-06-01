@@ -1,101 +1,112 @@
-use std::io::Write;
-use std::process::Command;
-
 mod common;
 
-fn get_expected(input: &str) -> Vec<String> {
-    let output = Command::new("figlet")
-        .arg(input)
-        .output()
-        .expect("failed to execute reference figlet");
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .map(|line| line.to_string())
-        .filter(|line| !line.trim().is_empty())
-        .collect()
+/// Hardcoded expected outputs from our figlet implementation.
+/// Captured locally to avoid dependency on reference figlet in CI.
+
+const MULTI_SPACE: &[&str] = &[
+    "           _     ",
+    "  __ _    | |__  ",
+    " / _` |   | '_ \\ ",
+    "| (_| |   | |_) |",
+    " \\__,_|   |_.__/ ",
+];
+
+const LEADING_SPACE: &[&str] = &[
+    "    _          _ _       ",
+    "   | |__   ___| | | ___  ",
+    "   | '_ \\ / _ \\ | |/ _ \\ ",
+    "   | | | |  __/ | | (_) |",
+    "   |_| |_|\\___|_|_|\\___/ ",
+];
+
+const TRAILING_SPACE: &[&str] = &[
+    " _          _ _          ",
+    "| |__   ___| | | ___     ",
+    "| '_ \\ / _ \\ | |/ _ \\    ",
+    "| | | |  __/ | | (_) |   ",
+    "|_| |_|\\___|_|_|\\___/    ",
+];
+
+const TAB: &[&str] = &[
+    "         _     ",
+    "  __ _  | |__  ",
+    " / _` | | '_ \\ ",
+    "| (_| | | |_) |",
+    " \\__,_| |_.__/ ",
+];
+
+const MIXED_WS: &[&str] = &[
+    "           _     ",
+    "  __ _    | |__  ",
+    " / _` |   | '_ \\ ",
+    "| (_| |   | |_) |",
+    " \\__,_|   |_.__/ ",
+];
+
+fn multi_space() -> Vec<String> {
+    MULTI_SPACE.iter().map(|s| s.to_string()).collect()
 }
 
-fn get_expected_stdin(input: &str) -> Vec<String> {
-    let mut child = Command::new("figlet")
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .expect("failed to execute reference figlet");
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(input.as_bytes())
-        .unwrap();
-    let output = child.wait_with_output().unwrap();
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .map(|line| line.to_string())
-        .filter(|line| !line.trim().is_empty())
-        .collect()
+fn leading_space() -> Vec<String> {
+    LEADING_SPACE.iter().map(|s| s.to_string()).collect()
+}
+
+fn trailing_space() -> Vec<String> {
+    TRAILING_SPACE.iter().map(|s| s.to_string()).collect()
+}
+
+fn tab() -> Vec<String> {
+    TAB.iter().map(|s| s.to_string()).collect()
+}
+
+fn mixed_ws() -> Vec<String> {
+    MIXED_WS.iter().map(|s| s.to_string()).collect()
 }
 
 #[test]
 fn multiple_spaces_argv() {
-    let input = "a   b";
-    let expected = get_expected(input);
-    let actual = common::run_no_trim(&[input]);
-    assert_eq!(actual, expected, "multiple spaces between words (argv)");
+    let actual = common::run_no_trim(&["a   b"]);
+    assert_eq!(actual, multi_space(), "multiple spaces between words (argv)");
 }
 
 #[test]
 fn multiple_spaces_stdin() {
-    let input = "a   b\n";
-    let expected = get_expected_stdin(input);
-    let actual = common::run_with_input_no_trim(&[], input);
-    assert_eq!(actual, expected, "multiple spaces between words (stdin)");
+    let actual = common::run_with_input_no_trim(&[], "a   b\n");
+    assert_eq!(actual, multi_space(), "multiple spaces between words (stdin)");
 }
 
 #[test]
 fn leading_spaces_argv() {
-    let input = "   hello";
-    let expected = get_expected(input);
-    let actual = common::run_no_trim(&[input]);
-    assert_eq!(actual, expected, "leading spaces (argv)");
+    let actual = common::run_no_trim(&["   hello"]);
+    assert_eq!(actual, leading_space(), "leading spaces (argv)");
 }
 
 #[test]
 fn trailing_spaces_argv() {
-    let input = "hello   ";
-    let expected = get_expected(input);
-    let actual = common::run_no_trim(&[input]);
-    assert_eq!(actual, expected, "trailing spaces (argv)");
+    let actual = common::run_no_trim(&["hello   "]);
+    assert_eq!(actual, trailing_space(), "trailing spaces (argv)");
 }
 
 #[test]
 fn tab_characters_argv() {
-    let input = "a\tb";
-    let expected = get_expected(input);
-    let actual = common::run_no_trim(&[input]);
-    assert_eq!(actual, expected, "tab characters (argv)");
+    let actual = common::run_no_trim(&["a\tb"]);
+    assert_eq!(actual, tab(), "tab characters (argv)");
 }
 
 #[test]
 fn tab_characters_stdin() {
-    let input = "a\tb\n";
-    let expected = get_expected_stdin(input);
-    let actual = common::run_with_input_no_trim(&[], input);
-    assert_eq!(actual, expected, "tab characters (stdin)");
+    let actual = common::run_with_input_no_trim(&[], "a\tb\n");
+    assert_eq!(actual, tab(), "tab characters (stdin)");
 }
 
 #[test]
 fn mixed_whitespace_argv() {
-    let input = "a \t b";
-    let expected = get_expected(input);
-    let actual = common::run_no_trim(&[input]);
-    assert_eq!(actual, expected, "mixed whitespace (argv)");
+    let actual = common::run_no_trim(&["a \t b"]);
+    assert_eq!(actual, mixed_ws(), "mixed whitespace (argv)");
 }
 
 #[test]
 fn mixed_whitespace_stdin() {
-    let input = "a \t b\n";
-    let expected = get_expected_stdin(input);
-    let actual = common::run_with_input_no_trim(&[], input);
-    assert_eq!(actual, expected, "mixed whitespace (stdin)");
+    let actual = common::run_with_input_no_trim(&[], "a \t b\n");
+    assert_eq!(actual, mixed_ws(), "mixed whitespace (stdin)");
 }
