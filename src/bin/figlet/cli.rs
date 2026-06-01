@@ -76,4 +76,13 @@ impl Args {
     pub fn finish(&mut self) -> Vec<OsString> {
         self.inner.take().unwrap().finish()
     }
+
+    /// Collect all values for a repeated flag.
+    pub fn collect_values(&mut self, keys: impl Into<pico_args::Keys> + Clone) -> Vec<String> {
+        let mut values = Vec::new();
+        while let Ok(Some(val)) = self.inner.as_mut().unwrap().opt_value_from_str::<_, String>(keys.clone().into()) {
+            values.push(val);
+        }
+        values
+    }
 }

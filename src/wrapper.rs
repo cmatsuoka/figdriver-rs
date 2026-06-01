@@ -13,14 +13,14 @@ pub enum Align {
 /// Wrapper receives string or character input and renders the corresponding
 /// FIGcharacters if the output text fits inside the maximum width specified on
 /// creation. The wrapper will flush the output buffer earlier if the line is
-/// too long, thus producing multiple “lines” of output text.
+/// too long, thus producing multiple "lines" of output text.
 pub struct Wrapper<'a> {
-    sm         : Smusher<'a>, // the FIGcharacter smusher
-    buffer     : String,      // buffer to keep our input text
-    has_space  : bool,        // whether the previous token was whitespace
-    just_flushed: bool,       // true after a wrap flush, suppresses leading space/whitespace
-    pub width  : usize,       // terminal width
-    pub align  : Align,       // text alignment
+    sm            : Smusher<'a>,    // the FIGcharacter smusher
+    buffer        : String,         // buffer to keep our input text
+    pending_space : Option<String>, // accumulated whitespace to commit with next word
+    just_flushed  : bool,           // true after a wrap flush, suppresses leading space/whitespace
+    pub width     : usize,          // terminal width
+    pub align     : Align,          // text alignment
 }
 
 impl<'a> Wrapper<'a> {
@@ -43,10 +43,10 @@ impl<'a> Wrapper<'a> {
         Wrapper{
             sm,
             width,
-            buffer     : String::new(),
-            align      : Align::Left,
-            has_space  : true,
-            just_flushed: false,
+            buffer        : String::new(),
+            align         : Align::Left,
+            pending_space : None,
+            just_flushed  : false,
         }
     }
 
@@ -54,7 +54,7 @@ impl<'a> Wrapper<'a> {
     pub fn clear(&mut self) {
         self.sm.clear();
         self.buffer.clear();
-        self.has_space = true;
+        self.pending_space = None;
         self.just_flushed = false;
     }
 
@@ -79,6 +79,11 @@ impl<'a> Wrapper<'a> {
     /// # }
     /// ```
     pub fn get(&mut self) -> Vec<String> {
+        // Commit pending whitespace before returning output
+        if let Some(sp) = self.pending_space.take() {
+            self.push_str(&sp).ok();
+        }
+
         if self.len() > self.width {
             self.sm.trim(self.width);
         }
@@ -207,26 +212,47 @@ impl<'a> Wrapper<'a> {
         // Handle whitespace tokens per spec (figfont.txt lines 1623-1633):
         // - At wrap points: discard all blanks until next non-blank character
         // - At input start or after linebreak: preserve blanks as FIGcharacters
-        // - Between words: collapse to a single space (handled via has_space flag)
+        // - Between words: accumulate whitespace, commit when next word arrives
         if empty {
             if self.just_flushed {
                 return;
             }
             if self.buffer.is_empty() {
                 self.push_str(s).ok();
-                self.has_space = false;
                 return;
             }
-            self.has_space = true;
+            self.pending_space.get_or_insert_with(String::new).push_str(s);
             return;
         }
 
         let after_wrap = std::mem::replace(&mut self.just_flushed, false);
+        let space = self.pending_space.take();
+        let commit_space = space.is_some() && !after_wrap && !self.buffer.is_empty();
 
-        if self.has_space && !after_wrap && !self.buffer.is_empty() {
-            let _ = self.push(' ');
+        // Try to commit accumulated whitespace before adding the word.
+        // Save buffer state before spaces so that, if the subsequent word push
+        // fails, the flush outputs content without trailing whitespace (spec
+        // says blanks at wrap points are discarded).
+        if commit_space {
+            let sp = space.unwrap();
+            let pre_space_buffer = self.buffer.clone();
+            if self.push_str(&sp).is_err() {
+                flush(&self.get());
+                self.clear();
+                self.push_str(&sp).ok();
+            }
+            if self.push_str(s).is_err() {
+                self.sm.clear();
+                self.sm.push_str(&pre_space_buffer);
+                flush(&self.get());
+                self.clear();
+                // Fall through to try word on fresh buffer
+            } else {
+                return;
+            }
         }
 
+        // Try word on current or fresh buffer; wrap at character level if needed.
         if self.push_str(s).is_err() {
             if !self.buffer.is_empty() {
                 flush(&self.get());
@@ -234,13 +260,8 @@ impl<'a> Wrapper<'a> {
             }
             if self.push_str(s).is_err() {
                 self.wrap_word(s, flush);
-                self.has_space = false;
-                self.just_flushed = false;
-                return;
             }
         }
-
-        self.has_space = false;
     }
 
     /// Add a word to the output buffer, breaking it if necessary.
@@ -308,10 +329,30 @@ mod tests {
 
         let flushed = flushed.borrow();
         assert_eq!(flushed.len(), 1, "newline should flush the first line");
-        assert!(!flushed[0][0].is_empty(), "flushed line should contain rendered content");
+        assert_eq!(
+            &flushed[0],
+            &[
+                r" _        _ _     ",
+                r"| |_  ___| | |___ ",
+                r"| ' \/ -_) | / _ \",
+                r"|_||_\___|_|_\___/",
+                r"                  ",
+            ],
+            "flushed content should match rendered hello"
+        );
 
         let remaining = wr.get();
-        assert!(!remaining[0].is_empty(), "remaining buffer should contain rendered world");
+        assert_eq!(
+            &remaining,
+            &[
+                r"                _    _ ",
+                r"__ __ _____ _ _| |__| |",
+                r"\ V  V / _ \ '_| / _` |",
+                r" \_/\_/\___/_| |_\__,_|",
+                r"                       ",
+            ],
+            "remaining buffer should match rendered world"
+        );
     }
 
     #[test]
@@ -326,11 +367,31 @@ mod tests {
 
         let flushed = flushed.borrow();
         assert_eq!(flushed.len(), 2, "consecutive newlines should flush content and blank line");
-        assert!(!flushed[0][0].is_empty(), "first flush should contain rendered content");
-        assert!(flushed[1][0].is_empty(), "second flush should be blank line");
+        assert_eq!(
+            &flushed[0],
+            &[
+                r" _        _ _     ",
+                r"| |_  ___| | |___ ",
+                r"| ' \/ -_) | / _ \",
+                r"|_||_\___|_|_\___/",
+                r"                  ",
+            ],
+            "first flush should contain rendered hello"
+        );
+        assert_eq!(&flushed[1], &[r"", r"", r"", r"", r""], "second flush should be blank lines");
 
         let remaining = wr.get();
-        assert!(!remaining[0].is_empty(), "remaining buffer should contain rendered world");
+        assert_eq!(
+            &remaining,
+            &[
+                r"                _    _ ",
+                r"__ __ _____ _ _| |__| |",
+                r"\ V  V / _ \ '_| / _` |",
+                r" \_/\_/\___/_| |_\__,_|",
+                r"                       ",
+            ],
+            "remaining buffer should match rendered world"
+        );
     }
 
     #[test]
@@ -345,10 +406,30 @@ mod tests {
 
         let flushed = flushed.borrow();
         assert_eq!(flushed.len(), 1, "should flush the first line");
-        assert!(!flushed[0][0].is_empty(), "flushed line should contain rendered content");
+        assert_eq!(
+            &flushed[0],
+            &[
+                r" _        _ _     ",
+                r"| |_  ___| | |___ ",
+                r"| ' \/ -_) | / _ \",
+                r"|_||_\___|_|_\___/",
+                r"                  ",
+            ],
+            "flushed content should match rendered hello"
+        );
 
         let remaining = wr.get();
-        assert!(remaining[0].starts_with("  "), "leading whitespace after newline should be preserved");
+        assert_eq!(
+            &remaining,
+            &[
+                r"                  _    _ ",
+                r"  __ __ _____ _ _| |__| |",
+                r"  \ V  V / _ \ '_| / _` |",
+                r"   \_/\_/\___/_| |_\__,_|",
+                r"                         ",
+            ],
+            "remaining should match rendered '  world'"
+        );
     }
 
     #[test]
@@ -361,14 +442,38 @@ mod tests {
         let mut wr = Wrapper::new(sm, 80);
         let flushed = RefCell::new(Vec::new());
         wr.wrap_str("hello\r\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
-        assert_eq!(flushed.borrow().len(), 1, "CRLF should flush the first line");
+        let flushed = flushed.borrow();
+        assert_eq!(flushed.len(), 1, "CRLF should flush the first line");
+        assert_eq!(
+            &flushed[0],
+            &[
+                r" _        _ _     ",
+                r"| |_  ___| | |___ ",
+                r"| ' \/ -_) | / _ \",
+                r"|_||_\___|_|_\___/",
+                r"                  ",
+            ],
+            "CRLF flush should contain rendered hello"
+        );
 
         // Bare CR
         let sm = Smusher::new(&font);
         let mut wr = Wrapper::new(sm, 80);
         let flushed = RefCell::new(Vec::new());
         wr.wrap_str("hello\rworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
-        assert_eq!(flushed.borrow().len(), 1, "bare CR should flush the first line");
+        let flushed = flushed.borrow();
+        assert_eq!(flushed.len(), 1, "bare CR should flush the first line");
+        assert_eq!(
+            &flushed[0],
+            &[
+                r" _        _ _     ",
+                r"| |_  ___| | |___ ",
+                r"| ' \/ -_) | / _ \",
+                r"|_||_\___|_|_\___/",
+                r"                  ",
+            ],
+            "bare CR flush should contain rendered hello"
+        );
     }
 
     #[test]
@@ -385,7 +490,17 @@ mod tests {
         assert_eq!(flushed.len(), 0, "leading newline should not flush blank line");
 
         let remaining = wr.get();
-        assert!(!remaining[0].is_empty(), "remaining buffer should contain rendered world");
+        assert_eq!(
+            &remaining,
+            &[
+                r"                _    _ ",
+                r"__ __ _____ _ _| |__| |",
+                r"\ V  V / _ \ '_| / _` |",
+                r" \_/\_/\___/_| |_\__,_|",
+                r"                       ",
+            ],
+            "remaining buffer should match rendered world"
+        );
     }
 
     #[test]
@@ -400,7 +515,17 @@ mod tests {
 
         let flushed = flushed.borrow();
         assert_eq!(flushed.len(), 1, "trailing newline should flush the content line once");
-        assert!(!flushed[0][0].is_empty(), "flushed line should contain rendered content");
+        assert_eq!(
+            &flushed[0],
+            &[
+                r" _        _ _     ",
+                r"| |_  ___| | |___ ",
+                r"| ' \/ -_) | / _ \",
+                r"|_||_\___|_|_\___/",
+                r"                  ",
+            ],
+            "flushed content should match rendered hello"
+        );
 
         assert!(wr.is_empty(), "buffer should be empty after trailing newline");
     }

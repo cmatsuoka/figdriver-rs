@@ -1,8 +1,7 @@
 use std::ffi::OsString;
 use std::io::{self, BufRead};
 use std::path::{Path, PathBuf, is_separator};
-use regex::Regex;
-use figdriver::Error;
+use figdriver::{Error, FlcPipeline};
 
 mod cli;
 
@@ -34,6 +33,7 @@ fn main() -> Result<(), Error> {
 
     if args.contains(["-h", "--help"]) {
         println!("Usage: figlet [options] message
+  -C, --control <file>    specify a control file (can be repeated)
   -c, --center             center the output horizontally
   -d, --dir <dir>          set the default font directory
   -f, --font <name>        specify the figfont to use
@@ -56,7 +56,7 @@ fn main() -> Result<(), Error> {
   -w, --width <cols>       set the output width
   -X, --font-direction     use font file's default print direction
   -x, --default-justification
-                           default justification (left for LTR, right for RTL)");
+                            default justification (left for LTR, right for RTL)");
         return Ok(());
     }
 
@@ -70,6 +70,7 @@ fn main() -> Result<(), Error> {
     let font_name = args.opt_value_from_str::<String>(["-f", "--font"])
         .map_err(|e| Error::Cli(e.to_string()))?;
 
+    let control_files: Vec<String> = args.collect_values(["-C", "--control"]);
     let use_terminal_width = args.contains("-t");
     let width: usize = match args.opt_value_from_str::<usize>(["-w", "--width"])
         .map_err(|e| Error::Cli(e.to_string()))?
@@ -121,12 +122,14 @@ fn main() -> Result<(), Error> {
         return Ok(());
     }
 
-    let mut fontpath = PathBuf::from(font_dir);
+    let mut fontpath = PathBuf::from(&font_dir);
     if let Some(name) = font_name {
-        fontpath = find_font(fontpath, name);
+        fontpath = find_font(PathBuf::from(&font_dir), name);
     } else {
         fontpath.push(DEFAULT_FONT);
     }
+
+    let control_paths: Vec<PathBuf> = control_files.iter().map(|f| find_control(&font_dir, f.clone())).collect();
 
     let msg: String = args.finish().into_iter()
         .filter_map(|s: OsString| s.into_string().ok())
@@ -144,6 +147,7 @@ fn main() -> Result<(), Error> {
             smush: use_smush,
             smush_force: use_smush_force,
             layout_mode,
+            control_paths,
         })
 }
 
@@ -203,6 +207,24 @@ fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
     PathBuf::from(name)
 }
 
+fn find_control(font_dir: &str, mut name: String) -> PathBuf {
+    if !name.ends_with(".flc") {
+        name = format!("{}.flc", name);
+    }
+
+    if name.starts_with(is_separator) {
+        return PathBuf::from(name);
+    }
+
+    let mut path = PathBuf::from(font_dir);
+    path.push(&name);
+    if path.exists() {
+        return path;
+    }
+
+    PathBuf::from(name)
+}
+
 /// Text print direction (controlled by -L, -R, -X)
 #[derive(Clone)]
 enum PrintDir {
@@ -238,6 +260,7 @@ struct RunConfig {
     smush: bool,
     smush_force: bool,
     layout_mode: Option<i32>,
+    control_paths: Vec<PathBuf>,
 }
 
 fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
@@ -246,7 +269,14 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     }
 
     let font = figdriver::FIGfont::from_path(path)?;
-    let mut sm = figdriver::Smusher::new(&font);
+
+    let control = if cfg.control_paths.is_empty() {
+        None
+    } else {
+        Some(FlcPipeline::from_paths(&cfg.control_paths)?)
+    };
+
+    let mut sm = figdriver::Smusher::with_control(&font, control.as_ref());
 
     if let Some(m) = cfg.layout_mode {
         match m {
@@ -321,22 +351,20 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
         }
     }
 
-    let re = Regex::new(r"(\S+|\s+)").unwrap();
-
     if !msg.is_empty() {
-        write_line(&mut wr, msg, &re);
+        write_line(&mut wr, msg);
     } else {
         let input = io::BufReader::new(io::stdin());
         if cfg.paragraph {
             for line in input.lines() {
                 let line = line?;
-                write_paragraph(&mut wr, &line, &re);
+                write_paragraph(&mut wr, &line);
             }
             print_output(&wr.get());
         } else {
             for line in input.lines() {
                 let line = line?;
-                write_line(&mut wr, &line, &re);
+                write_line(&mut wr, &line);
             }
         }
     }
@@ -344,25 +372,35 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     Ok(())
 }
 
-fn write_line(wr: &mut figdriver::Wrapper, s: &str, re: &Regex) {
+fn write_line(wr: &mut figdriver::Wrapper, s: &str) {
     wr.clear();
-    write_tokens(wr, s, re);
+    write_tokens(wr, s);
     print_output(&wr.get());
 }
 
-fn write_paragraph(wr: &mut figdriver::Wrapper, s: &str, re: &Regex) {
+fn write_paragraph(wr: &mut figdriver::Wrapper, s: &str) {
     if s.starts_with(char::is_whitespace) && !wr.is_empty() {
         print_output(&wr.get());
         wr.clear();
     }
-    write_tokens(wr, s, re);
+    write_tokens(wr, s);
 }
 
-fn write_tokens(wr: &mut figdriver::Wrapper, s: &str, re: &Regex) {
-    for caps in re.captures_iter(s) {
-        if let Some(val) = caps.get(0) {
-            wr.wrap_str(val.as_str(), &print_output);
+fn write_tokens(wr: &mut figdriver::Wrapper, s: &str) {
+    let mut chars = s.char_indices().peekable();
+    let mut start = 0;
+
+    while let Some((_, c)) = chars.next() {
+        let is_ws = c.is_whitespace();
+        while let Some(&(_, next_c)) = chars.peek() {
+            if next_c.is_whitespace() != is_ws || (is_ws && next_c != ' ') {
+                break;
+            }
+            chars.next();
         }
+        let end = chars.peek().map_or(s.len(), |&(idx, _)| idx);
+        wr.wrap_str(&s[start..end], &print_output);
+        start = end;
     }
 }
 

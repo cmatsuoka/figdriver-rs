@@ -7,10 +7,12 @@ use std::path::PathBuf;
 pub use self::figfont::*;
 pub use self::wrapper::{Align, Wrapper};
 pub use self::smusher::Smusher;
+pub use self::flc::{Flc, FlcPipeline};
 
 mod figfont;
 mod wrapper;
 mod smusher;
+mod flc;
 
 #[derive(Debug)]
 pub enum Error {
@@ -21,6 +23,8 @@ pub enum Error {
     LineFull,
     FontNotFound(PathBuf),
     Cli(String),
+    ControlFormat(&'static str),
+    ControlRangeMismatch,
 }
 
 impl fmt::Display for Error {
@@ -33,6 +37,8 @@ impl fmt::Display for Error {
             Error::LineFull          => write!(f, "Line is full"),
             Error::FontNotFound(path) => write!(f, "Font not found: {}", path.display()),
             Error::Cli(msg)          => write!(f, "{}", msg),
+            Error::ControlFormat(msg) => write!(f, "Malformed control file: {}", msg),
+            Error::ControlRangeMismatch => write!(f, "Range sizes do not match"),
         }
     }
 }
@@ -40,11 +46,13 @@ impl fmt::Display for Error {
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            Error::Io(err)         => Some(err),
-            Error::Parse(err)      => Some(err),
-            Error::FontNotFound(_) => None,
-            Error::Cli(_)          => None,
-            _                      => None,
+            Error::Io(err)              => Some(err),
+            Error::Parse(err)           => Some(err),
+            Error::FontNotFound(_)      => None,
+            Error::Cli(_)               => None,
+            Error::ControlFormat(_)     => None,
+            Error::ControlRangeMismatch => None,
+            _                           => None,
         }
     }
 }
