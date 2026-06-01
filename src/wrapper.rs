@@ -329,10 +329,30 @@ mod tests {
 
         let flushed = flushed.borrow();
         assert_eq!(flushed.len(), 1, "newline should flush the first line");
-        assert!(!flushed[0][0].is_empty(), "flushed line should contain rendered content");
+        assert_eq!(
+            &flushed[0],
+            &[
+                r" _        _ _     ",
+                r"| |_  ___| | |___ ",
+                r"| ' \/ -_) | / _ \",
+                r"|_||_\___|_|_\___/",
+                r"                  ",
+            ],
+            "flushed content should match rendered hello"
+        );
 
         let remaining = wr.get();
-        assert!(!remaining[0].is_empty(), "remaining buffer should contain rendered world");
+        assert_eq!(
+            &remaining,
+            &[
+                r"                _    _ ",
+                r"__ __ _____ _ _| |__| |",
+                r"\ V  V / _ \ '_| / _` |",
+                r" \_/\_/\___/_| |_\__,_|",
+                r"                       ",
+            ],
+            "remaining buffer should match rendered world"
+        );
     }
 
     #[test]
@@ -347,11 +367,31 @@ mod tests {
 
         let flushed = flushed.borrow();
         assert_eq!(flushed.len(), 2, "consecutive newlines should flush content and blank line");
-        assert!(!flushed[0][0].is_empty(), "first flush should contain rendered content");
-        assert!(flushed[1][0].is_empty(), "second flush should be blank line");
+        assert_eq!(
+            &flushed[0],
+            &[
+                r" _        _ _     ",
+                r"| |_  ___| | |___ ",
+                r"| ' \/ -_) | / _ \",
+                r"|_||_\___|_|_\___/",
+                r"                  ",
+            ],
+            "first flush should contain rendered hello"
+        );
+        assert_eq!(&flushed[1], &[r"", r"", r"", r"", r""], "second flush should be blank lines");
 
         let remaining = wr.get();
-        assert!(!remaining[0].is_empty(), "remaining buffer should contain rendered world");
+        assert_eq!(
+            &remaining,
+            &[
+                r"                _    _ ",
+                r"__ __ _____ _ _| |__| |",
+                r"\ V  V / _ \ '_| / _` |",
+                r" \_/\_/\___/_| |_\__,_|",
+                r"                       ",
+            ],
+            "remaining buffer should match rendered world"
+        );
     }
 
     #[test]
@@ -366,10 +406,30 @@ mod tests {
 
         let flushed = flushed.borrow();
         assert_eq!(flushed.len(), 1, "should flush the first line");
-        assert!(!flushed[0][0].is_empty(), "flushed line should contain rendered content");
+        assert_eq!(
+            &flushed[0],
+            &[
+                r" _        _ _     ",
+                r"| |_  ___| | |___ ",
+                r"| ' \/ -_) | / _ \",
+                r"|_||_\___|_|_\___/",
+                r"                  ",
+            ],
+            "flushed content should match rendered hello"
+        );
 
         let remaining = wr.get();
-        assert!(remaining[0].starts_with("  "), "leading whitespace after newline should be preserved");
+        assert_eq!(
+            &remaining,
+            &[
+                r"                  _    _ ",
+                r"  __ __ _____ _ _| |__| |",
+                r"  \ V  V / _ \ '_| / _` |",
+                r"   \_/\_/\___/_| |_\__,_|",
+                r"                         ",
+            ],
+            "remaining should match rendered '  world'"
+        );
     }
 
     #[test]
@@ -382,14 +442,38 @@ mod tests {
         let mut wr = Wrapper::new(sm, 80);
         let flushed = RefCell::new(Vec::new());
         wr.wrap_str("hello\r\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
-        assert_eq!(flushed.borrow().len(), 1, "CRLF should flush the first line");
+        let flushed = flushed.borrow();
+        assert_eq!(flushed.len(), 1, "CRLF should flush the first line");
+        assert_eq!(
+            &flushed[0],
+            &[
+                r" _        _ _     ",
+                r"| |_  ___| | |___ ",
+                r"| ' \/ -_) | / _ \",
+                r"|_||_\___|_|_\___/",
+                r"                  ",
+            ],
+            "CRLF flush should contain rendered hello"
+        );
 
         // Bare CR
         let sm = Smusher::new(&font);
         let mut wr = Wrapper::new(sm, 80);
         let flushed = RefCell::new(Vec::new());
         wr.wrap_str("hello\rworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
-        assert_eq!(flushed.borrow().len(), 1, "bare CR should flush the first line");
+        let flushed = flushed.borrow();
+        assert_eq!(flushed.len(), 1, "bare CR should flush the first line");
+        assert_eq!(
+            &flushed[0],
+            &[
+                r" _        _ _     ",
+                r"| |_  ___| | |___ ",
+                r"| ' \/ -_) | / _ \",
+                r"|_||_\___|_|_\___/",
+                r"                  ",
+            ],
+            "bare CR flush should contain rendered hello"
+        );
     }
 
     #[test]
@@ -406,7 +490,17 @@ mod tests {
         assert_eq!(flushed.len(), 0, "leading newline should not flush blank line");
 
         let remaining = wr.get();
-        assert!(!remaining[0].is_empty(), "remaining buffer should contain rendered world");
+        assert_eq!(
+            &remaining,
+            &[
+                r"                _    _ ",
+                r"__ __ _____ _ _| |__| |",
+                r"\ V  V / _ \ '_| / _` |",
+                r" \_/\_/\___/_| |_\__,_|",
+                r"                       ",
+            ],
+            "remaining buffer should match rendered world"
+        );
     }
 
     #[test]
@@ -421,7 +515,17 @@ mod tests {
 
         let flushed = flushed.borrow();
         assert_eq!(flushed.len(), 1, "trailing newline should flush the content line once");
-        assert!(!flushed[0][0].is_empty(), "flushed line should contain rendered content");
+        assert_eq!(
+            &flushed[0],
+            &[
+                r" _        _ _     ",
+                r"| |_  ___| | |___ ",
+                r"| ' \/ -_) | / _ \",
+                r"|_||_\___|_|_\___/",
+                r"                  ",
+            ],
+            "flushed content should match rendered hello"
+        );
 
         assert!(wr.is_empty(), "buffer should be empty after trailing newline");
     }
