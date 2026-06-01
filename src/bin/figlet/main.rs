@@ -131,7 +131,22 @@ fn main() -> Result<(), Error> {
 
     let control_paths: Vec<PathBuf> = control_files.iter().map(|f| find_control(&font_dir, f.clone())).collect();
 
-    let msg: String = args.finish().into_iter()
+    let remaining: Vec<OsString> = args.finish();
+    let double_dash_pos = remaining.iter().position(|arg| arg.as_os_str() == "--");
+    let before_len = double_dash_pos.unwrap_or(remaining.len());
+
+    if let Some(invalid) = remaining[..before_len].iter().find(|arg| {
+        let s = arg.to_string_lossy();
+        s.starts_with('-') && s != "-"
+    }) {
+        return Err(Error::Cli(format!("Invalid flag: {}", invalid.to_string_lossy())));
+    }
+
+    let msg: String = remaining
+        .into_iter()
+        .enumerate()
+        .filter(|&(i, _)| Some(i) != double_dash_pos)
+        .map(|(_, s)| s)
         .filter_map(|s: OsString| s.into_string().ok())
         .collect::<Vec<_>>()
         .join(" ");
