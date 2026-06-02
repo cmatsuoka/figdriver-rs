@@ -374,11 +374,13 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
                 let line = line?;
                 write_paragraph(&mut wr, &line);
             }
-            print_output(&wr.get());
+            if !wr.is_empty() {
+                print_output(&wr.get());
+            }
         } else {
-            for line in input.lines() {
-                let line = line?;
-                write_line(&mut wr, &line);
+            let input_str = std::io::read_to_string(io::stdin())?;
+            for line in input_str.split_inclusive('\n') {
+                write_line(&mut wr, line);
             }
         }
     }
@@ -389,7 +391,9 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
 fn write_line(wr: &mut figdriver::Wrapper, s: &str) {
     wr.clear();
     write_tokens(wr, s);
-    print_output(&wr.get());
+    if !wr.is_empty() {
+        print_output(&wr.get());
+    }
 }
 
 fn write_paragraph(wr: &mut figdriver::Wrapper, s: &str) {

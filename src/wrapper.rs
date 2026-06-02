@@ -177,20 +177,14 @@ impl<'a> Wrapper<'a> {
         let normalized = s.replace("\r\n", "\n").replace("\r", "\n");
         if normalized.contains('\n') {
             let segments: Vec<&str> = normalized.split('\n').collect();
-            let num_segments = segments.len();
 
             for (i, segment) in segments.iter().enumerate() {
                 if i > 0 {
-                    // Flush current buffer as a complete line after newline
-                    if !self.is_empty() {
-                        flush(&self.get());
-                        self.clear();
-                    }
-                    // Consecutive newlines produce blank lines
-                    if segment.is_empty() && i < num_segments - 1 {
-                        flush(&self.get());
-                        self.clear();
-                    }
+                    // Flush on newline, matching reference figlet which calls
+                    // printline() unconditionally. Even an empty buffer produces
+                    // height blank lines (get() returns height empty-string lines).
+                    flush(&self.get());
+                    self.clear();
                 }
 
                 if segment.is_empty() {
@@ -477,7 +471,7 @@ mod tests {
     }
 
     #[test]
-    fn test_leading_newline_no_blank_line() {
+    fn test_leading_newline_flushes_blank_line() {
         use std::cell::RefCell;
         let font = test_font().unwrap();
         let sm = Smusher::new(&font);
@@ -487,7 +481,8 @@ mod tests {
         wr.wrap_str("\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
 
         let flushed = flushed.borrow();
-        assert_eq!(flushed.len(), 0, "leading newline should not flush blank line");
+        assert_eq!(flushed.len(), 1, "leading newline should flush blank line");
+        assert_eq!(&flushed[0], &[r"", r"", r"", r"", r""], "flushed should be blank lines");
 
         let remaining = wr.get();
         assert_eq!(
