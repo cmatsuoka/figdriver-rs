@@ -18,7 +18,6 @@ pub struct Wrapper<'a> {
     sm            : Smusher<'a>,    // the FIGcharacter smusher
     buffer        : String,         // buffer to keep our input text
     pending_space : Option<String>, // accumulated whitespace to commit with next word
-    just_flushed  : bool,           // true after a wrap flush, suppresses leading space/whitespace
     pub width     : usize,          // terminal width
     pub align     : Align,          // text alignment
 }
@@ -46,7 +45,6 @@ impl<'a> Wrapper<'a> {
             buffer        : String::new(),
             align         : Align::Left,
             pending_space : None,
-            just_flushed  : false,
         }
     }
 
@@ -55,7 +53,6 @@ impl<'a> Wrapper<'a> {
         self.sm.clear();
         self.buffer.clear();
         self.pending_space = None;
-        self.just_flushed = false;
     }
 
     /// Retrieve the output buffer lines.
@@ -206,9 +203,6 @@ impl<'a> Wrapper<'a> {
         // - At input start or after linebreak: preserve blanks as FIGcharacters
         // - Between words: accumulate whitespace, commit when next word arrives
         if empty {
-            if self.just_flushed {
-                return;
-            }
             if self.buffer.is_empty() {
                 self.push_str(s).ok();
                 return;
@@ -217,9 +211,8 @@ impl<'a> Wrapper<'a> {
             return;
         }
 
-        let after_wrap = std::mem::replace(&mut self.just_flushed, false);
         let space = self.pending_space.take();
-        let commit_space = space.is_some() && !after_wrap && !self.buffer.is_empty();
+        let commit_space = space.is_some() && !self.buffer.is_empty();
 
         // Try to commit accumulated whitespace before adding the word.
         // Save buffer state before spaces so that, if the subsequent word push
@@ -231,20 +224,26 @@ impl<'a> Wrapper<'a> {
             if self.push_str(&sp).is_err() {
                 flush(&self.get());
                 self.clear();
-                self.push_str(&sp).ok();
-            }
-            if self.push_str(s).is_err() {
+                if self.push_str(s).is_err() {
+                    self.wrap_word(s, flush);
+                }
+                return;
+            } else if self.push_str(s).is_err() {
+                // Word doesn't fit after space. Flush without trailing space.
                 self.sm.clear();
                 self.sm.push_str(&pre_space_buffer);
                 flush(&self.get());
                 self.clear();
-                // Fall through to try word on fresh buffer
+                if self.push_str(s).is_err() {
+                    self.wrap_word(s, flush);
+                }
+                return;
             } else {
                 return;
             }
         }
 
-        // Try word on current or fresh buffer; wrap at character level if needed.
+        // Try word on current buffer; wrap at character level if needed.
         if self.push_str(s).is_err() {
             if !self.buffer.is_empty() {
                 flush(&self.get());
@@ -269,7 +268,6 @@ impl<'a> Wrapper<'a> {
                 if !self.buffer.is_empty() {
                     flush(&self.get());
                     self.clear();
-                    self.just_flushed = true;
                 }
                 if self.sm.push(c) {
                     self.buffer.push(c);
