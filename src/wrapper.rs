@@ -231,14 +231,14 @@ impl<'a> Wrapper<'a> {
             if self.push_str(&sp).is_err() {
                 flush(&self.get());
                 self.clear();
-                self.push_str(&sp).ok();
-            }
-            if self.push_str(s).is_err() {
+                // Space discarded at wrap point. Fall through to try word on fresh buffer.
+            } else if self.push_str(s).is_err() {
+                // Word doesn't fit after space. Flush without trailing space.
                 self.sm.clear();
                 self.sm.push_str(&pre_space_buffer);
                 flush(&self.get());
                 self.clear();
-                // Fall through to try word on fresh buffer
+                // Fall through to try word on fresh buffer.
             } else {
                 return;
             }
@@ -269,7 +269,6 @@ impl<'a> Wrapper<'a> {
                 if !self.buffer.is_empty() {
                     flush(&self.get());
                     self.clear();
-                    self.just_flushed = true;
                 }
                 if self.sm.push(c) {
                     self.buffer.push(c);
