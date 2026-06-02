@@ -368,17 +368,20 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     if !msg.is_empty() {
         write_line(&mut wr, msg);
     } else {
-        let input = io::BufReader::new(io::stdin());
+        let mut input = io::BufReader::new(io::stdin());
         if cfg.paragraph {
             for line in input.lines() {
                 let line = line?;
                 write_paragraph(&mut wr, &line);
             }
-            print_output(&wr.get());
+            if !wr.is_empty() {
+                print_output(&wr.get());
+            }
         } else {
-            for line in input.lines() {
-                let line = line?;
+            let mut line = String::new();
+            while input.read_line(&mut line)? > 0 {
                 write_line(&mut wr, &line);
+                line.clear();
             }
         }
     }
@@ -389,7 +392,9 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
 fn write_line(wr: &mut figdriver::Wrapper, s: &str) {
     wr.clear();
     write_tokens(wr, s);
-    print_output(&wr.get());
+    if !wr.is_empty() {
+        print_output(&wr.get());
+    }
 }
 
 fn write_paragraph(wr: &mut figdriver::Wrapper, s: &str) {

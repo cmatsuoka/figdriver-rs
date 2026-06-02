@@ -315,3 +315,20 @@ fn smush_force_overrides_kern() {
     let kerned_width = kerned[0].chars().count();
     assert!(smushed_width < kerned_width);
 }
+
+#[test]
+fn flc_all_chars_skipped_produces_no_output() {
+    // When an FLC control file maps all input characters to codes whose glyphs
+    // are missing from the font, the wrapper should produce no output (matching
+    // reference figlet behavior). See GitHub issue #36.
+    let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let font = figdriver::FIGfont::from_path(base.join("fonts/standard.flf")).unwrap();
+    let pipeline = figdriver::FlcPipeline::from_paths(&[base.join("fonts/frango.flc")]).unwrap();
+    let mut sm = figdriver::Smusher::with_control(&font, Some(&pipeline));
+    sm.mode = font.layout;
+    let mut wr = figdriver::Wrapper::new(sm, 80);
+    assert!(wr.push_str("Test").is_ok());
+    assert!(wr.is_empty());
+    let output = wr.get();
+    assert!(output.iter().all(|line| line.is_empty()));
+}
