@@ -176,9 +176,7 @@ impl<'a> Wrapper<'a> {
         // Normalize CRLF and bare CR to LF for cross-platform compatibility.
         let normalized = s.replace("\r\n", "\n").replace("\r", "\n");
         if normalized.contains('\n') {
-            let segments: Vec<&str> = normalized.split('\n').collect();
-
-            for (i, segment) in segments.iter().enumerate() {
+            for (i, segment) in normalized.split('\n').enumerate() {
                 if i > 0 {
                     // Flush on newline, matching reference figlet which calls
                     // printline() unconditionally. Even an empty buffer produces

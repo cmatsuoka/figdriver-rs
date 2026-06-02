@@ -368,7 +368,7 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     if !msg.is_empty() {
         write_line(&mut wr, msg);
     } else {
-        let input = io::BufReader::new(io::stdin());
+        let mut input = io::BufReader::new(io::stdin());
         if cfg.paragraph {
             for line in input.lines() {
                 let line = line?;
@@ -378,9 +378,10 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
                 print_output(&wr.get());
             }
         } else {
-            let input_str = std::io::read_to_string(io::stdin())?;
-            for line in input_str.split_inclusive('\n') {
-                write_line(&mut wr, line);
+            let mut line = String::new();
+            while input.read_line(&mut line)? > 0 {
+                write_line(&mut wr, &line);
+                line.clear();
             }
         }
     }
