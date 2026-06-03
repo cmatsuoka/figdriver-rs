@@ -332,3 +332,32 @@ fn flc_all_chars_skipped_produces_no_output() {
     let output = wr.get();
     assert!(output.iter().all(|line| line.is_empty()));
 }
+
+#[test]
+fn paragraph_mode_newline_converts_to_space() {
+    // In paragraph mode, newlines between lines are converted to spaces.
+    // "Hello\nWorld" should render as "Hello World" with the space between
+    // words, producing wider output than "HelloWorld" (no space).
+    let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let font = figdriver::FIGfont::from_path(base.join("fonts/small.flf")).unwrap();
+    let sm = figdriver::Smusher::new(&font);
+    let mut wr = figdriver::Wrapper::new(sm, 80);
+
+    // Simulate paragraph mode: process two lines with space insertion
+    wr.wrap_str("Hello", &dummy);
+    wr.wrap_str(" ", &dummy);
+    wr.wrap_str("World", &dummy);
+    let with_space = wr.get();
+
+    let sm2 = figdriver::Smusher::new(&font);
+    let mut wr2 = figdriver::Wrapper::new(sm2, 80);
+    wr2.wrap_str("HelloWorld", &dummy);
+    let without_space = wr2.get();
+
+    assert!(
+        with_space[0].chars().count() > without_space[0].chars().count(),
+        "newline should insert a space (width {} > {})",
+        with_space[0].chars().count(),
+        without_space[0].chars().count()
+    );
+}

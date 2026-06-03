@@ -286,6 +286,7 @@ fn add_pad(v: &[String], pad_size: usize) -> Vec<String> {
 mod tests {
     use super::*;
     use crate::FIGfont;
+    use std::cell::RefCell;
 
     macro_rules! vec_string {
         ( $($x:expr),* ) => (vec![$($x.to_string()),*])
@@ -519,5 +520,33 @@ mod tests {
         );
 
         assert!(wr.is_empty(), "buffer should be empty after trailing newline");
+    }
+
+    #[test]
+    fn test_space_overflow_no_duplicate_flush() {
+        // Regression test for commit 59006750. When input exceeds width and wrap_word
+        // is called, characters are wrapped one by one. The fix ensures that after a
+        // space-triggered flush, the subsequent word is processed correctly without
+        // redundant re-flushing of the pre-space buffer.
+        // Uses test font where each character renders to exactly 1 char width.
+        let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/tests/fixtures/test.flf").unwrap();
+        let sm = Smusher::new(&font);
+        let mut wr = Wrapper::new(sm, 5);
+        let flushed = RefCell::new(Vec::new());
+        let flush_count = RefCell::new(0usize);
+
+        // "hi test" (7 chars) exceeds width 5, triggering wrap_word.
+        // Characters 'h','i',' ','t','e' fit (5 chars). 's' overflows (6 > 5),
+        // flushing "hi te". Then 's','t' remain in buffer as "st".
+        wr.wrap_str("hi test", &|lines: &[String]| {
+            *flush_count.borrow_mut() += 1;
+            flushed.borrow_mut().push(lines[0].clone());
+        });
+
+        let fc = *flush_count.borrow();
+        let flushed = flushed.borrow();
+        assert_eq!(fc, 1, "should flush once during wrap_word");
+        assert_eq!(&flushed[0], &"hi te", "flushed content is 'hi te' (5 chars)");
+        assert_eq!(wr.get()[0], "st", "remaining buffer holds 'st'");
     }
 }
