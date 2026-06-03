@@ -55,7 +55,7 @@ impl Args {
         }
         for (_, aliases) in groups {
             for alias in *aliases {
-                while self.inner.as_mut().unwrap().contains(*alias) {}
+                while self.inner.as_mut().unwrap().contains(*alias) { /* drain */ }
             }
         }
         result
