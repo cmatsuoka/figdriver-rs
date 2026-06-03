@@ -1,12 +1,51 @@
-use std::path;
+use std::path::PathBuf;
+
+fn load_font(path: &str) -> figdriver::FIGfont {
+    figdriver::FIGfont::from_path(
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(path)
+    ).unwrap()
+}
 
 macro_rules! new_smusher {
-    ( $a: ident, $b: expr ) => {
-        let path = env!("CARGO_MANIFEST_DIR").to_owned() + &path::MAIN_SEPARATOR.to_string() + $b;
-        let font = figdriver::FIGfont::from_path(path).unwrap();
-        let mut $a = figdriver::Smusher::new(&font);
-        $a.mode = font.layout;
-    }
+    ( $font:ident, $wr:ident, $path:expr, $width:expr, $align:expr ) => {
+        let $font = load_font($path);
+        let mut $wr = figdriver::Wrapper::new(
+            figdriver::Smusher::new(&$font),
+            $width,
+            $align,
+        );
+    };
+    ( $font:ident, $wr:ident, $path:expr, $width:expr, $align:expr, mode $mode:expr ) => {
+        let $font = load_font($path);
+        let mut $wr = figdriver::Wrapper::new(
+            figdriver::Smusher::builder(&$font)
+                .layout_mode($mode)
+                .build(),
+            $width,
+            $align,
+        );
+    };
+    ( $font:ident, $wr:ident, $path:expr, $width:expr, $align:expr, rtl ) => {
+        let $font = load_font($path);
+        let mut $wr = figdriver::Wrapper::new(
+            figdriver::Smusher::builder(&$font)
+                .right_to_left(true)
+                .build(),
+            $width,
+            $align,
+        );
+    };
+    ( $font:ident, $wr:ident, $path:expr, $width:expr, $align:expr, mode $mode:expr, rtl ) => {
+        let $font = load_font($path);
+        let mut $wr = figdriver::Wrapper::new(
+            figdriver::Smusher::builder(&$font)
+                .layout_mode($mode)
+                .right_to_left(true)
+                .build(),
+            $width,
+            $align,
+        );
+    };
 }
 
 fn dummy(_: &[String]) {
@@ -14,8 +53,7 @@ fn dummy(_: &[String]) {
 
 #[test]
 fn line_full() {
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    let mut wr = figdriver::Wrapper::new(sm, 8);
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 8, figdriver::Align::Left);
     assert!(!wr.push_str("this").is_err());
     assert!(!wr.push_str(" ").is_err());
     assert!(!wr.push_str("is").is_err());
@@ -26,43 +64,35 @@ fn line_full() {
 
 #[test]
 fn line_wrap() {
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    let mut wr = figdriver::Wrapper::new(sm, 8);
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 8, figdriver::Align::Left);
     [ "this", " ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(&x, &dummy));
     assert_eq!(wr.get(), vec!["a test"]);
 }
 
 #[test]
 fn wrap_align_left() {
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    let mut wr = figdriver::Wrapper::new(sm, 12);
-    wr.align = figdriver::Align::Left;
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 12, figdriver::Align::Left);
     [ "this", " ", "is", " ", "a", " ", "new", " ", "test" ].iter().for_each(|x| wr.wrap_str(&x, &dummy));
     assert_eq!(wr.get(), vec!["new test"]);
 }
 
 #[test]
 fn wrap_align_center() {
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    let mut wr = figdriver::Wrapper::new(sm, 12);
-    wr.align = figdriver::Align::Center;
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 12, figdriver::Align::Center);
     [ "this", " ", "is", " ", "a", " ", "new", " ", "test" ].iter().for_each(|x| wr.wrap_str(&x, &dummy));
     assert_eq!(wr.get(), vec!["  new test"]);
 }
 
 #[test]
 fn wrap_align_right() {
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    let mut wr = figdriver::Wrapper::new(sm, 12);
-    wr.align = figdriver::Align::Right;
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 12, figdriver::Align::Right);
     [ "this", " ", "is", " ", "a", " ", "new", " ", "test" ].iter().for_each(|x| wr.wrap_str(&x, &dummy));
     assert_eq!(wr.get(), vec!["    new test"]);
 }
 
 #[test]
 fn standard_font_char() {
-    new_smusher!(sm, "fonts/standard.flf");
-    let mut wr = figdriver::Wrapper::new(sm, 60);
+    new_smusher!(fnt, wr, "fonts/standard.flf", 60, figdriver::Align::Left);
     assert!(!wr.push('A').is_err());
     assert_eq!(wr.get(), vec![r"    _    ",
                               r"   / \   ",
@@ -74,8 +104,7 @@ fn standard_font_char() {
 
 #[test]
 fn smushing() {
-    new_smusher!(sm, "fonts/small.flf");
-    let mut wr = figdriver::Wrapper::new(sm, 60);
+    new_smusher!(fnt, wr, "fonts/small.flf", 60, figdriver::Align::Left);
     assert!(!wr.push_str("Smushy").is_err());
     assert_eq!(wr.get(), vec![r" ___              _        ",
                               r"/ __|_ __ _  _ __| |_ _  _ ",
@@ -86,9 +115,7 @@ fn smushing() {
 
 #[test]
 fn kerning() {
-    new_smusher!(sm, "fonts/small.flf");
-    sm.mode = figdriver::SMUSH_KERN;
-    let mut wr = figdriver::Wrapper::new(sm, 60);
+    new_smusher!(fnt, wr, "fonts/small.flf", 60, figdriver::Align::Left, mode figdriver::LayoutMode::Kern);
     assert!(!wr.push_str("Kerning").is_err());
     assert_eq!(wr.get(), vec![r" _  __                 _             ",
                               r"| |/ / ___  _ _  _ _  (_) _ _   __ _ ",
@@ -99,9 +126,7 @@ fn kerning() {
 
 #[test]
 fn overlap() {
-    new_smusher!(sm, "fonts/standard.flf");
-    sm.mode = 0;
-    let mut wr = figdriver::Wrapper::new(sm, 60);
+    new_smusher!(fnt, wr, "fonts/standard.flf", 60, figdriver::Align::Left, mode figdriver::LayoutMode::Overlap);
     assert!(!wr.push_str("Over Write").is_err());
     assert_eq!(wr.get(), vec![r"  ___                __        __    _ _       ",
                               r" / _ \__   _____ _ __\ \      / _ __(_| |_ ___ ",
@@ -113,9 +138,7 @@ fn overlap() {
 
 #[test]
 fn full_width() {
-    new_smusher!(sm, "fonts/small.flf");
-    sm.full_width = true;
-    let mut wr = figdriver::Wrapper::new(sm, 60);
+    new_smusher!(fnt, wr, "fonts/small.flf", 60, figdriver::Align::Left, mode figdriver::LayoutMode::FullWidth);
     assert!(!wr.push_str("Full width").is_err());
     assert_eq!(wr.get(), vec![r"  ___          _   _              _      _   _     _    ",
                               r" | __|  _  _  | | | |   __ __ __ (_)  __| | | |_  | |_  ",
@@ -126,8 +149,7 @@ fn full_width() {
 
 #[test]
 fn utf8_input() {
-    new_smusher!(sm, "fonts/standard.flf");
-    let mut wr = figdriver::Wrapper::new(sm, 60);
+    new_smusher!(fnt, wr, "fonts/standard.flf", 60, figdriver::Align::Left);
     assert!(!wr.push_str("Ação! ಠ_ಠ").is_err());
     assert_eq!(wr.get(), vec![r"    _        /\/|       _    _____)      _____)",
                               r"   / \   ___|/\/_  ___ | |  /_ ___/     /_ ___/",
@@ -139,10 +161,7 @@ fn utf8_input() {
 
 #[test]
 fn right_to_left() {
-    new_smusher!(sm, "fonts/small.flf");
-    sm.right2left = true;
-    let mut wr = figdriver::Wrapper::new(sm, 60);
-    wr.align = figdriver::Align::Right;
+    new_smusher!(fnt, wr, "fonts/small.flf", 60, figdriver::Align::Right, rtl);
     assert!(!wr.push_str("ABC").is_err());
     let output = wr.get();
     // RTL + right-aligned: content is right-aligned with left padding
@@ -154,8 +173,7 @@ fn right_to_left() {
 fn consecutive_blanks_collapsed_at_wrap() {
     // Multiple blanks at a wrap point should be discarded per spec.
     // With preserved whitespace, "this   is" exceeds width 8, wrapping earlier.
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    let mut wr = figdriver::Wrapper::new(sm, 8);
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 8, figdriver::Align::Left);
     [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
     assert_eq!(wr.get(), vec!["test"]);
 }
@@ -163,8 +181,7 @@ fn consecutive_blanks_collapsed_at_wrap() {
 #[test]
 fn leading_blanks_preserved() {
     // Blanks at the start of input should be rendered as FIGcharacters.
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    let mut wr = figdriver::Wrapper::new(sm, 30);
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 30, figdriver::Align::Left);
     wr.wrap_str("   ", &dummy);
     wr.wrap_str("x", &dummy);
     assert_eq!(wr.get(), vec!["   x"]);
@@ -175,9 +192,7 @@ fn rtl_consecutive_blanks_collapsed_at_wrap() {
     // Multiple blanks at a wrap point should be discarded in RTL mode.
     // In RTL mode with the test font, text is reversed (chars prepended left).
     // With preserved whitespace, "this   is" exceeds width 8, wrapping earlier.
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    sm.right2left = true;
-    let mut wr = figdriver::Wrapper::new(sm, 8);
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 8, figdriver::Align::Left, rtl);
     [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
     assert_eq!(wr.get(), vec!["tset"]);
 }
@@ -186,9 +201,7 @@ fn rtl_consecutive_blanks_collapsed_at_wrap() {
 fn rtl_leading_blanks_preserved() {
     // Blanks at the start of input should be rendered as FIGcharacters in RTL mode.
     // In RTL, leading blanks become trailing rendered spaces, preserved in output (figlet behavior).
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    sm.right2left = true;
-    let mut wr = figdriver::Wrapper::new(sm, 30);
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 30, figdriver::Align::Left, rtl);
     wr.wrap_str("   ", &dummy);
     wr.wrap_str("x", &dummy);
     // After RTL smushing: "x   " (x prepended left of 3 spaces)
@@ -198,9 +211,7 @@ fn rtl_leading_blanks_preserved() {
 #[test]
 fn rtl_inter_word_blanks_preserved() {
     // Multiple blanks between words should be preserved in RTL mode.
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    sm.right2left = true;
-    let mut wr = figdriver::Wrapper::new(sm, 30);
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 30, figdriver::Align::Left, rtl);
     [ "a", "   ", "b" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
     assert_eq!(wr.get(), vec!["b   a"]);
 }
@@ -208,9 +219,7 @@ fn rtl_inter_word_blanks_preserved() {
 #[test]
 fn rtl_blank_after_wrap_discarded() {
     // Whitespace immediately after a flush should be discarded in RTL mode.
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    sm.right2left = true;
-    let mut wr = figdriver::Wrapper::new(sm, 4);
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 4, figdriver::Align::Left, rtl);
     [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
     // "this" (4) wraps, "is a" (4) wraps, "test" (4) → RTL rendered as "tset"
     assert_eq!(wr.get(), vec!["tset"]);
@@ -219,8 +228,7 @@ fn rtl_blank_after_wrap_discarded() {
 #[test]
 fn inter_word_blanks_preserved() {
     // Multiple blanks between words should be preserved.
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    let mut wr = figdriver::Wrapper::new(sm, 30);
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 30, figdriver::Align::Left);
     [ "a", "   ", "b" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
     assert_eq!(wr.get(), vec!["a   b"]);
 }
@@ -228,8 +236,7 @@ fn inter_word_blanks_preserved() {
 #[test]
 fn blank_after_wrap_discarded() {
     // Whitespace immediately after a flush should be discarded.
-    new_smusher!(sm, "tests/fixtures/test.flf");
-    let mut wr = figdriver::Wrapper::new(sm, 4);
+    new_smusher!(fnt, wr, "tests/fixtures/test.flf", 4, figdriver::Align::Left);
     [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
     assert_eq!(wr.get(), vec!["test"]);
 }
@@ -237,13 +244,9 @@ fn blank_after_wrap_discarded() {
 #[test]
 fn smush_force_with_enable_uses_font_layout() {
     // -S on a font with SMUSH_ENABLE sets mode to font.layout
-    let path = env!("CARGO_MANIFEST_DIR").to_owned() + &path::MAIN_SEPARATOR.to_string() + "fonts/small.flf";
-    let font = figdriver::FIGfont::from_path(path).unwrap();
+    let font = load_font("fonts/small.flf");
     assert!((font.layout & figdriver::SMUSH_ENABLE) != 0);
-    let mut sm = figdriver::Smusher::new(&font);
-    sm.mode = font.layout;
-    sm.full_width = false;
-    let mut wr = figdriver::Wrapper::new(sm, 60);
+    new_smusher!(fnt, wr, "fonts/small.flf", 60, figdriver::Align::Left, mode figdriver::LayoutMode::SmushForce);
     assert!(!wr.push_str("Smushy").is_err());
     let output = wr.get();
     assert_eq!(output, vec![r" ___              _        ",
@@ -256,20 +259,14 @@ fn smush_force_with_enable_uses_font_layout() {
 #[test]
 fn smush_force_without_enable_falls_back_to_overlap() {
     // -S on a font without SMUSH_ENABLE (banner, layout=64) falls back to overlap mode 0
-    let path = env!("CARGO_MANIFEST_DIR").to_owned() + &path::MAIN_SEPARATOR.to_string() + "fonts/banner.flf";
-    let font = figdriver::FIGfont::from_path(path).unwrap();
+    let font = load_font("fonts/banner.flf");
     assert!((font.layout & figdriver::SMUSH_ENABLE) == 0);
-    let mut sm = figdriver::Smusher::new(&font);
-    sm.mode = 0;
-    sm.full_width = false;
-    let mut wr = figdriver::Wrapper::new(sm, 60);
+    new_smusher!(fnt, wr, "fonts/banner.flf", 60, figdriver::Align::Left, mode figdriver::LayoutMode::SmushForce);
     assert!(!wr.push_str("Hi").is_err());
     let output = wr.get();
     assert!(!output[0].is_empty());
     let smushed_width = output[0].chars().count();
-    let mut sm_full = figdriver::Smusher::new(&font);
-    sm_full.full_width = true;
-    let mut wr_full = figdriver::Wrapper::new(sm_full, 60);
+    new_smusher!(fnt2, wr_full, "fonts/banner.flf", 60, figdriver::Align::Left, mode figdriver::LayoutMode::FullWidth);
     assert!(!wr_full.push_str("Hi").is_err());
     let full_width = wr_full.get()[0].chars().count();
     assert!(smushed_width < full_width);
@@ -278,18 +275,11 @@ fn smush_force_without_enable_falls_back_to_overlap() {
 #[test]
 fn smush_force_overrides_full_width() {
     // -S should disable full_width mode
-    let path = env!("CARGO_MANIFEST_DIR").to_owned() + &path::MAIN_SEPARATOR.to_string() + "fonts/small.flf";
-    let font = figdriver::FIGfont::from_path(path).unwrap();
-    let mut sm = figdriver::Smusher::new(&font);
-    sm.full_width = false;
-    sm.mode = font.layout;
-    let mut wr = figdriver::Wrapper::new(sm, 60);
+    new_smusher!(fnt, wr, "fonts/small.flf", 60, figdriver::Align::Left, mode figdriver::LayoutMode::SmushForce);
     assert!(!wr.push_str("Hi").is_err());
     let output = wr.get();
     let smushed_width = output[0].chars().count();
-    let mut sm_full = figdriver::Smusher::new(&font);
-    sm_full.full_width = true;
-    let mut wr_full = figdriver::Wrapper::new(sm_full, 60);
+    new_smusher!(fnt2, wr_full, "fonts/small.flf", 60, figdriver::Align::Left, mode figdriver::LayoutMode::FullWidth);
     assert!(!wr_full.push_str("Hi").is_err());
     let full_width = wr_full.get()[0].chars().count();
     assert!(smushed_width < full_width);
@@ -298,17 +288,10 @@ fn smush_force_overrides_full_width() {
 #[test]
 fn smush_force_overrides_kern() {
     // -S should take precedence over kern mode
-    let path = env!("CARGO_MANIFEST_DIR").to_owned() + &path::MAIN_SEPARATOR.to_string() + "fonts/small.flf";
-    let font = figdriver::FIGfont::from_path(path).unwrap();
-    let mut sm = figdriver::Smusher::new(&font);
-    sm.mode = font.layout;
-    sm.full_width = false;
-    let mut wr = figdriver::Wrapper::new(sm, 60);
+    new_smusher!(fnt, wr, "fonts/small.flf", 60, figdriver::Align::Left, mode figdriver::LayoutMode::SmushForce);
     assert!(!wr.push_str("Smushy").is_err());
     let smushed = wr.get();
-    let mut sm_kern = figdriver::Smusher::new(&font);
-    sm_kern.mode = figdriver::SMUSH_KERN;
-    let mut wr_kern = figdriver::Wrapper::new(sm_kern, 60);
+    new_smusher!(fnt2, wr_kern, "fonts/small.flf", 60, figdriver::Align::Left, mode figdriver::LayoutMode::Kern);
     assert!(!wr_kern.push_str("Smushy").is_err());
     let kerned = wr_kern.get();
     let smushed_width = smushed[0].chars().count();
@@ -321,12 +304,14 @@ fn flc_all_chars_skipped_produces_no_output() {
     // When an FLC control file maps all input characters to codes whose glyphs
     // are missing from the font, the wrapper should produce no output (matching
     // reference figlet behavior). See GitHub issue #36.
-    let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let font = figdriver::FIGfont::from_path(base.join("fonts/standard.flf")).unwrap();
-    let pipeline = figdriver::FlcPipeline::from_paths(&[base.join("fonts/frango.flc")]).unwrap();
-    let mut sm = figdriver::Smusher::with_control(&font, Some(&pipeline));
-    sm.mode = font.layout;
-    let mut wr = figdriver::Wrapper::new(sm, 80);
+    let font = load_font("fonts/standard.flf");
+    let pipeline = figdriver::FlcPipeline::from_paths(&[
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fonts/frango.flc"),
+    ]).unwrap();
+    let sm = figdriver::Smusher::builder(&font)
+        .control(Some(&pipeline))
+        .build();
+    let mut wr = figdriver::Wrapper::new(sm, 80, figdriver::Align::Left);
     assert!(wr.push_str("Test").is_ok());
     assert!(wr.is_empty());
     let output = wr.get();
@@ -338,10 +323,7 @@ fn paragraph_mode_newline_converts_to_space() {
     // In paragraph mode, newlines between lines are converted to spaces.
     // "Hello\nWorld" should render as "Hello World" with the space between
     // words, producing wider output than "HelloWorld" (no space).
-    let base = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let font = figdriver::FIGfont::from_path(base.join("fonts/small.flf")).unwrap();
-    let sm = figdriver::Smusher::new(&font);
-    let mut wr = figdriver::Wrapper::new(sm, 80);
+    new_smusher!(fnt, wr, "fonts/small.flf", 80, figdriver::Align::Left);
 
     // Simulate paragraph mode: process two lines with space insertion
     wr.wrap_str("Hello", &dummy);
@@ -349,8 +331,7 @@ fn paragraph_mode_newline_converts_to_space() {
     wr.wrap_str("World", &dummy);
     let with_space = wr.get();
 
-    let sm2 = figdriver::Smusher::new(&font);
-    let mut wr2 = figdriver::Wrapper::new(sm2, 80);
+    new_smusher!(fnt2, wr2, "fonts/small.flf", 80, figdriver::Align::Left);
     wr2.wrap_str("HelloWorld", &dummy);
     let without_space = wr2.get();
 

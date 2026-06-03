@@ -88,14 +88,39 @@ fn main() -> Result<(), Error> {
         }
     };
 
-    let use_kern = args.contains(["-k", "--kern"]);
-    let use_overlap = args.contains(["-o", "--overlap"]);
-    let use_full_width = args.contains(["-W", "--full-width"]);
-    let use_smush = args.contains(["-s", "--smush-default"]);
-    let use_smush_force = args.contains(["-S", "--smush"]);
-
-    let layout_mode: Option<i32> = args.opt_value_from_str::<i32>(["-m", "--layout-mode"])
+    let layout_mode_value: Option<i32> = args.opt_value_from_str::<i32>(["-m", "--layout-mode"])
         .map_err(|e| Error::Cli(e.to_string()))?;
+
+    let layout_mode_flag = args.last_of(&[
+        (figdriver::LayoutMode::SmushForce,  &["-S", "--smush"]),
+        (figdriver::LayoutMode::SmushDefault, &["-s", "--smush-default"]),
+        (figdriver::LayoutMode::Overlap,     &["-o", "--overlap"]),
+        (figdriver::LayoutMode::Kern,        &["-k", "--kern"]),
+        (figdriver::LayoutMode::FullWidth,   &["-W", "--full-width"]),
+    ]);
+
+    let m_idx = args.last_index_of(&["-m", "--layout-mode"]);
+    let flag_idx = args.last_index_of(&["-S", "--smush", "-s", "--smush-default", "-o", "--overlap", "-k", "--kern", "-W", "--full-width"]);
+    let layout_mode: Option<figdriver::LayoutMode> = if let Some(m) = layout_mode_value {
+        let resolved_m = match m {
+            0 => figdriver::LayoutMode::Kern,
+            -1 => figdriver::LayoutMode::FullWidth,
+            -2 => figdriver::LayoutMode::SmushDefault,
+            1.. => figdriver::LayoutMode::Custom(m as u32),
+            _ => return Err(Error::Cli(format!("Invalid mode value: {}", m))),
+        };
+        if let (Some(mi), Some(fi)) = (m_idx, flag_idx) {
+            if mi > fi {
+                Some(resolved_m)
+            } else {
+                layout_mode_flag.or(Some(resolved_m))
+            }
+        } else {
+            Some(resolved_m)
+        }
+    } else {
+        layout_mode_flag
+    };
 
     let paragraph = args.last_of(&[
         (true,  &["-p", "--paragraph"]),
@@ -151,16 +176,11 @@ fn main() -> Result<(), Error> {
         .join(" ");
 
     run(&fontpath, &msg, &RunConfig {
-            kern: use_kern,
-            overlap: use_overlap,
-            full_width: use_full_width,
+            layout_mode,
             print_dir,
             width,
             paragraph,
             justify,
-            smush: use_smush,
-            smush_force: use_smush_force,
-            layout_mode,
             control_paths,
         })
 }
@@ -264,16 +284,11 @@ enum Justify {
 }
 
 struct RunConfig {
-    kern: bool,
-    overlap: bool,
-    full_width: bool,
+    layout_mode: Option<figdriver::LayoutMode>,
     print_dir: PrintDir,
     width: usize,
     paragraph: bool,
     justify: Justify,
-    smush: bool,
-    smush_force: bool,
-    layout_mode: Option<i32>,
     control_paths: Vec<PathBuf>,
 }
 
@@ -290,80 +305,34 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
         Some(FlcPipeline::from_paths(&cfg.control_paths)?)
     };
 
-    let mut sm = figdriver::Smusher::with_control(&font, control.as_ref());
-
-    if let Some(m) = cfg.layout_mode {
-        match m {
-            0 => {
-                sm.mode = figdriver::SMUSH_KERN;
-                sm.full_width = false;
-            }
-            -1 => {
-                sm.full_width = true;
-            }
-            -2 => {
-                if (font.layout & figdriver::SMUSH_ENABLE) != 0 {
-                    sm.mode = font.layout;
-                    sm.full_width = false;
-                }
-            }
-            1.. => {
-                sm.mode = m as u32;
-                sm.full_width = false;
-            }
-            _ => {
-                return Err(Error::Cli(format!("Invalid mode value: {}", m)));
-            }
-        }
-    } else if cfg.smush_force {
-        if (font.layout & figdriver::SMUSH_ENABLE) != 0 {
-            sm.mode = font.layout;
-        } else {
-            sm.mode = 0;
-        }
-        sm.full_width = false;
-    } else if cfg.smush && (font.layout & figdriver::SMUSH_ENABLE) != 0 {
-        sm.mode = font.layout;
-        sm.full_width = false;
-    } else if cfg.overlap {
-        sm.mode = 0;
-    } else if cfg.kern {
-        sm.mode = figdriver::SMUSH_KERN;
-    }
-
-    if cfg.full_width && !cfg.smush && !cfg.smush_force {
-        sm.full_width = true;
-    }
+    let layout_mode = cfg.layout_mode.unwrap_or(figdriver::LayoutMode::Default);
 
     let resolved_rtl = match cfg.print_dir {
         PrintDir::Ltr => false,
         PrintDir::Rtl => true,
-        PrintDir::FontDefault => sm.right2left,
+        PrintDir::FontDefault => font.right_to_left,
     };
-    sm.right2left = resolved_rtl;
+
+    let justify_align = match cfg.justify {
+        Justify::Left => figdriver::Align::Left,
+        Justify::Right => figdriver::Align::Right,
+        Justify::Center => figdriver::Align::Center,
+        Justify::Default => if resolved_rtl {
+            figdriver::Align::Right
+        } else {
+            figdriver::Align::Left
+        },
+    };
+
+    let sm = figdriver::Smusher::builder(&font)
+        .control(control.as_ref())
+        .layout_mode(layout_mode)
+        .right_to_left(resolved_rtl)
+        .build();
 
     // Subtract 1 from width to match figlet's quirk: figlet treats `-w N` as
     // "allow lines up to N-1 characters" rather than N characters.
-    let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1);
-
-    match cfg.justify {
-        Justify::Left => {
-            wr.align = figdriver::Align::Left;
-        }
-        Justify::Right => {
-            wr.align = figdriver::Align::Right;
-        }
-        Justify::Center => {
-            wr.align = figdriver::Align::Center;
-        }
-        Justify::Default => {
-            wr.align = if resolved_rtl {
-                figdriver::Align::Right
-            } else {
-                figdriver::Align::Left
-            };
-        }
-    }
+    let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1, justify_align);
 
     if !msg.is_empty() {
         write_line(&mut wr, msg);
