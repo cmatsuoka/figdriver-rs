@@ -104,8 +104,8 @@ fn main() -> Result<(), Error> {
     let layout_mode: Option<figdriver::LayoutMode> = if let Some(m) = layout_mode_value {
         let resolved_m = match m {
             0 => figdriver::LayoutMode::Kern,
-            -1 => figdriver::LayoutMode::FullWidth,
-            -2 => figdriver::LayoutMode::SmushDefault,
+           -1 => figdriver::LayoutMode::FullWidth,
+           -2 => figdriver::LayoutMode::SmushDefault,
             1.. => figdriver::LayoutMode::Custom(m as u32),
             _ => return Err(Error::Cli(format!("Invalid mode value: {}", m))),
         };
@@ -187,25 +187,15 @@ fn main() -> Result<(), Error> {
 
 fn print_infocode(code: i32, font_dir: &str, font_name: &str, width: usize) {
     match code {
-       0 => {
+        0 => {
             println!("{}", COPYRIGHT_NOTICE);
             println!("Version: {}", env!("CARGO_PKG_VERSION"));
         }
-        1 => {
-            print_version_int();
-        }
-        2 => {
-            println!("{}", font_dir);
-        }
-        3 => {
-            println!("{}", strip_font_suffix(font_name));
-        }
-        4 => {
-            println!("{}", width);
-        }
-        5 => {
-            println!("flf2");
-        }
+        1 => { print_version_int(); }
+        2 => { println!("{}", font_dir); }
+        3 => { println!("{}", strip_font_suffix(font_name)); }
+        4 => { println!("{}", width); }
+        5 => { println!("flf2"); }
         // Reference figlet exits silently (code 0) for unsupported infocodes.
         _ => {}
     }
