@@ -398,9 +398,12 @@ fn write_line(wr: &mut figdriver::Wrapper, s: &str) {
 }
 
 fn write_paragraph(wr: &mut figdriver::Wrapper, s: &str) {
-    if s.starts_with(char::is_whitespace) && !wr.is_empty() {
+    if !s.is_empty() && s.starts_with(' ') && !wr.is_empty() {
         print_output(&wr.get());
         wr.clear();
+    }
+    if !wr.is_empty() && !s.starts_with(' ') {
+        wr.wrap_str(" ", &print_output);
     }
     write_tokens(wr, s);
 }
