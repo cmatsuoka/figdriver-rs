@@ -36,8 +36,9 @@ impl Args {
                 continue;
             }
             if s.starts_with("--") {
+                let key = s.split('=').next().unwrap_or("");
                 for (value, aliases) in groups {
-                    if aliases.iter().any(|a| s == *a) {
+                    if aliases.iter().any(|a| key == *a) {
                         result = Some(value.clone());
                     }
                 }
@@ -98,7 +99,8 @@ impl Args {
                 continue;
             }
             if s.starts_with("--") {
-                if aliases.iter().any(|a| s == *a) {
+                let key = s.split('=').next().unwrap_or("");
+                if aliases.iter().any(|a| key == *a) {
                     result = Some(i);
                 }
             } else {
