@@ -53,9 +53,11 @@ impl Args {
                 }
             }
         }
-        for (_, aliases) in groups {
-            for alias in *aliases {
-                while self.inner.as_mut().unwrap().contains(*alias) {}
+        if let Some(inner) = self.inner.as_mut() {
+            for (_, aliases) in groups {
+                for alias in *aliases {
+                    while inner.contains(*alias) { /* drain */ }
+                }
             }
         }
         result
