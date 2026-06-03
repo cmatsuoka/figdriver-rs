@@ -36,8 +36,9 @@ impl Args {
                 continue;
             }
             if s.starts_with("--") {
+                let key = s.split('=').next().unwrap_or("");
                 for (value, aliases) in groups {
-                    if aliases.iter().any(|a| s == *a) {
+                    if aliases.contains(&key) {
                         result = Some(value.clone());
                     }
                 }
@@ -45,9 +46,9 @@ impl Args {
                 for c in s.chars().skip(1) {
                     let flag = format!("-{}", c);
                     for (value, aliases) in groups {
-                        if aliases.iter().any(|a| flag == *a) {
-                            result = Some(value.clone());
-                        }
+                   if aliases.iter().any(|a| flag == *a) {
+                        result = Some(value.clone());
+                    }
                     }
                 }
             }
@@ -84,6 +85,34 @@ impl Args {
             values.push(val);
         }
         values
+    }
+
+    /// Returns the index in the raw args vector of the last occurrence of a given alias.
+    pub fn last_index_of(&self, aliases: &[&str]) -> Option<usize> {
+        let mut result: Option<usize> = None;
+        for (i, arg) in self.args.iter().enumerate() {
+            let s = arg.to_string_lossy();
+            if s == "--" {
+                break;
+            }
+            if !s.starts_with('-') {
+                continue;
+            }
+            if s.starts_with("--") {
+                let key = s.split('=').next().unwrap_or("");
+                if aliases.contains(&key) {
+                    result = Some(i);
+                }
+            } else {
+                for c in s.chars().skip(1) {
+                    let flag = format!("-{}", c);
+                    if aliases.iter().any(|a| flag == *a) {
+                        result = Some(i);
+                    }
+                }
+            }
+        }
+        result
     }
 
  }

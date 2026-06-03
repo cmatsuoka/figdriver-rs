@@ -1,9 +1,127 @@
 use std::cmp::min;
 pub use crate::figfont::{FIGchar, FIGfont};
 use crate::flc::FlcPipeline;
+use crate::SMUSH_ENABLE;
 
 mod charsmush;
 pub mod strsmush;
+
+/// Layout mode for horizontal character arrangement.
+///
+/// Determines how FIGcharacters are spaced and whether they overlap.
+/// Each variant corresponds to a resolution of `(mode, full_width)` values
+/// when passed to `SmusherBuilder`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LayoutMode {
+    /// Use the font's own layout settings (default when no flag is given).
+    Default,
+
+    /// No smushing; each character takes its full width with one extra column gap.
+    FullWidth,
+
+    /// Characters overlap each other (mode = 0, full_width = false).
+    Overlap,
+
+    /// Kerning mode (mode = SMUSH_KERN, full_width = false).
+    Kern,
+
+    /// Smush using font layout if SMUSH_ENABLE is set; otherwise fall back to font default.
+    /// Corresponds to the `-s` / `--smush-default` CLI flag.
+    SmushDefault,
+
+    /// Force smush using font layout if SMUSH_ENABLE is set; otherwise overlap (mode = 0).
+    /// Corresponds to the `-S` / `--smush` CLI flag.
+    SmushForce,
+
+    /// An arbitrary bit-mask of smush flags. full_width is forced to false.
+    /// Combine with SMUSH_EQUAL, SMUSH_UNDERLINE, SMUSH_HIERARCHY, SMUSH_PAIR,
+    /// SMUSH_BIGX, SMUSH_HARDBLANK, SMUSH_KERN.
+    Custom(u32),
+}
+
+impl LayoutMode {
+    /// Resolve the layout mode to concrete `(mode, full_width)` values.
+    fn resolve(&self, font: &FIGfont) -> (u32, bool) {
+        match self {
+            LayoutMode::Default => (font.layout, font.old_layout == -1),
+            LayoutMode::FullWidth => (font.layout, true),
+            LayoutMode::Overlap => (0, false),
+            LayoutMode::Kern => (crate::SMUSH_KERN, false),
+            LayoutMode::SmushDefault => {
+                if (font.layout & SMUSH_ENABLE) != 0 {
+                    (font.layout, false)
+                } else {
+                    (font.layout, font.old_layout == -1)
+                }
+            }
+            LayoutMode::SmushForce => {
+                if (font.layout & SMUSH_ENABLE) != 0 {
+                    (font.layout, false)
+                } else {
+                    (0, false)
+                }
+            }
+            LayoutMode::Custom(v) => (*v, false),
+        }
+    }
+}
+
+/// Builder for configuring a `Smusher`.
+///
+/// # Examples
+///
+/// ```
+/// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
+/// let font = figdriver::FIGfont::from_path("small.flf")?;
+/// let sm = figdriver::Smusher::builder(&font)
+///     .layout_mode(figdriver::LayoutMode::Kern)
+///     .build();
+/// # Ok(())
+/// # }
+/// ```
+pub struct SmusherBuilder<'a> {
+    font: &'a FIGfont,
+    control: Option<&'a FlcPipeline>,
+    layout_mode: LayoutMode,
+    right_to_left: Option<bool>,
+}
+
+impl<'a> SmusherBuilder<'a> {
+    /// Set an optional character-mapping control pipeline.
+    pub fn control(mut self, control: Option<&'a FlcPipeline>) -> Self {
+        self.control = control;
+        self
+    }
+
+    /// Override the layout mode. Defaults to `LayoutMode::Default`.
+    pub fn layout_mode(mut self, mode: LayoutMode) -> Self {
+        self.layout_mode = mode;
+        self
+    }
+
+    /// Override the right-to-left setting. Defaults to the font's `right_to_left`.
+    pub fn right_to_left(mut self, val: bool) -> Self {
+        self.right_to_left = Some(val);
+        self
+    }
+
+    /// Build the Smusher.
+    pub fn build(self) -> Smusher<'a> {
+        let (mode, full_width) = self.layout_mode.resolve(self.font);
+        let mut sm = Smusher {
+            font: self.font,
+            mode,
+            full_width,
+            right2left: self.right_to_left.unwrap_or(self.font.right_to_left),
+            output: Vec::new(),
+            control: self.control,
+        };
+        for _ in 0..sm.font.height {
+            sm.output.push(String::new());
+        }
+        sm
+    }
+}
 
 /// Creates a message written with ASCII-art characters.
 ///
@@ -14,9 +132,9 @@ pub mod strsmush;
 /// or smushing (where borders overlap).
 #[derive(Debug)]
 pub struct Smusher<'a> {
-    pub mode      : u32,          // the layout mode
-    pub full_width: bool,
-    pub right2left: bool,
+    mode      : u32,
+    full_width: bool,
+    right2left: bool,
     font          : &'a FIGfont,
     output        : Vec<String>,
     control       : Option<&'a FlcPipeline>,
@@ -33,6 +151,8 @@ impl<'a> Smusher<'a> {
 
     /// Create a new smusher using the specified FIGfont.
     ///
+    /// Equivalent to `Smusher::builder(font).build()`.
+    ///
     /// # Examples
     ///
     /// ```
@@ -46,23 +166,29 @@ impl<'a> Smusher<'a> {
     /// # }
     /// ```
     pub fn new(font: &'a FIGfont) -> Self {
-        Self::with_control(font, None)
+        Self::builder(font).build()
     }
 
-    /// Create a new smusher with an optional control file pipeline.
-    pub fn with_control(font: &'a FIGfont, control: Option<&'a FlcPipeline>) -> Self {
-        let mut sm = Smusher{
+    /// Create a builder for configuring the Smusher.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
+    /// let font = figdriver::FIGfont::from_path("small.flf")?;
+    /// let sm = figdriver::Smusher::builder(&font)
+    ///     .layout_mode(figdriver::LayoutMode::Kern)
+    ///     .build();
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn builder(font: &'a FIGfont) -> SmusherBuilder<'a> {
+        SmusherBuilder {
             font,
-            mode      : font.layout,
-            full_width: font.old_layout == -1,
-            right2left: font.right_to_left,
-            output    : Vec::new(),
-            control,
-        };
-        for _ in 0..sm.font.height {
-            sm.output.push(String::new());
+            control: None,
+            layout_mode: LayoutMode::Default,
+            right_to_left: None,
         }
-        sm
     }
 
     /// Get the contents of the output buffer, replacing hardblanks with spaces.
@@ -302,8 +428,9 @@ mod tests {
     #[test]
     fn test_smusher_full_width() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
-        let mut sm = Smusher::new(&font);
-        sm.full_width = true;
+        let mut sm = Smusher::builder(&font)
+            .layout_mode(LayoutMode::FullWidth)
+            .build();
         sm.push('A');
         sm.push('B');
         let output = sm.get();
@@ -316,12 +443,30 @@ mod tests {
         let mut font = FIGfont::default();
         font.height = 3;
         font.right_to_left = false;
-        let sm = Smusher::new(&font);
+        let sm = Smusher::builder(&font).build();
         assert!(!sm.right2left);
 
         font.right_to_left = true;
-        let sm = Smusher::new(&font);
+        let sm = Smusher::builder(&font).build();
         assert!(sm.right2left);
+    }
+
+    // right_to_left builder option overrides font setting
+    #[test]
+    fn test_smusher_right_to_left_override() {
+        let mut font = FIGfont::default();
+        font.height = 3;
+        font.right_to_left = false;
+        let sm = Smusher::builder(&font)
+            .right_to_left(true)
+            .build();
+        assert!(sm.right2left);
+
+        font.right_to_left = true;
+        let sm = Smusher::builder(&font)
+            .right_to_left(false)
+            .build();
+        assert!(!sm.right2left);
     }
 
     // Rendering a string with a missing character produces the same output as
