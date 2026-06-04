@@ -21,7 +21,31 @@ doc = false
 required-features = ["cli"]
 
 [[test]]
+name = "align_flags"
+required-features = ["cli"]
+
+[[test]]
+name = "information_flags"
+required-features = ["cli"]
+
+[[test]]
+name = "invalid_flag"
+required-features = ["cli"]
+
+[[test]]
+name = "last_flag_wins"
+required-features = ["cli"]
+
+[[test]]
+name = "smush_flags"
+required-features = ["cli"]
+
+[[test]]
 name = "terminal_width"
+required-features = ["cli"]
+
+[[test]]
+name = "whitespace_tokenization"
 required-features = ["cli"]
 
 [features]
