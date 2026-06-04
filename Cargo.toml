@@ -7,6 +7,7 @@ description = "Render text as ASCII-art banners"
 repository = "https://github.com/cmatsuoka/figdriver-rs"
 license = "MIT"
 keywords = ["ascii", "ascii-art", "terminal"]
+readme = "README.md"
 
 [lib]
 name = "figdriver"
