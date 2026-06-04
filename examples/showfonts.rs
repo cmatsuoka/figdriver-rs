@@ -15,7 +15,10 @@ fn main() {
 
 fn run() -> Result<(), Box<dyn Error>> {
     let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts";
-    let mut fonts: Vec<_> = fs::read_dir(&path)?.map(|x| x.unwrap().path()).collect();
+    let mut fonts: Vec<_> = fs::read_dir(&path)?
+        .map(|x| x.unwrap().path())
+        .filter(|p| p.extension().map_or(false, |ext| ext == "flf"))
+        .collect();
     fonts.sort();
     for f in fonts {
         show_font(f, &path)?;
