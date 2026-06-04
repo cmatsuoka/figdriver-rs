@@ -8,6 +8,7 @@ repository = "https://github.com/cmatsuoka/figdriver-rs"
 license = "MIT"
 keywords = ["ascii", "ascii-art", "terminal"]
 readme = "README.md"
+categories = ["text-processing"]
 
 [lib]
 name = "figdriver"

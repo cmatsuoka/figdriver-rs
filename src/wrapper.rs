@@ -2,7 +2,7 @@ use crate::Error;
 use crate::Smusher;
 use crate::smusher::display_width;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Align {
     Left,
     Right,
@@ -15,6 +15,7 @@ pub enum Align {
 /// FIGcharacters if the output text fits inside the maximum width specified on
 /// creation. The wrapper will flush the output buffer earlier if the line is
 /// too long, thus producing multiple "lines" of output text.
+#[derive(Debug)]
 pub struct Wrapper<'a> {
     sm            : Smusher<'a>,    // the FIGcharacter smusher
     buffer        : String,         // buffer to keep our input text
