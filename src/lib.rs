@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 pub use self::figfont::*;
 pub use self::wrapper::{Align, Wrapper};
- pub use self::smusher::{LayoutMode, Smusher, SmusherBuilder};
+pub use self::smusher::{LayoutMode, Smusher, SmusherBuilder};
 pub use self::flc::{Flc, Control};
 
 mod figfont;
@@ -23,7 +23,6 @@ pub enum Error {
     CodeTag(i32),
     LineFull,
     FontNotFound(PathBuf),
-    Cli(String),
     ControlFormat(&'static str),
     ControlRangeMismatch,
 }
@@ -37,7 +36,6 @@ impl fmt::Display for Error {
             Error::CodeTag(tag)      => write!(f, "Invalid code tag: {}", tag),
             Error::LineFull          => write!(f, "Line is full"),
             Error::FontNotFound(path) => write!(f, "Font not found: {}", path.display()),
-            Error::Cli(msg)          => write!(f, "{}", msg),
             Error::ControlFormat(msg) => write!(f, "Malformed control file: {}", msg),
             Error::ControlRangeMismatch => write!(f, "Range sizes do not match"),
         }
@@ -50,7 +48,6 @@ impl error::Error for Error {
             Error::Io(err)              => Some(err),
             Error::Parse(err)           => Some(err),
             Error::FontNotFound(_)      => None,
-            Error::Cli(_)               => None,
             Error::ControlFormat(_)     => None,
             Error::ControlRangeMismatch => None,
             _                           => None,
@@ -75,7 +72,6 @@ mod tests {
     use super::*;
     use std::error::Error as _;
 
-    // Display impl for FontFormat, CodeTag, LineFull, FontNotFound, Cli
     #[test]
     fn test_error_display() {
         assert_eq!(format!("{}", Error::FontFormat("bad header")), "bad header");
@@ -85,34 +81,28 @@ mod tests {
             format!("{}", Error::FontNotFound(PathBuf::from("/foo/bar.flf"))),
             "Font not found: /foo/bar.flf"
         );
-        assert_eq!(
-            format!("{}", Error::Cli("bad arg".to_string())),
-            "bad arg"
-        );
     }
 
-    // Display impl for Parse variant wraps the inner ParseIntError message
     #[test]
     fn test_error_display_parse() {
         let err: Error = "not_a_number".parse::<i32>().unwrap_err().into();
         assert!(format!("{}", err).starts_with("Can't parse value:"));
     }
 
-    // Display impl for Io variant delegates to the inner io::Error
     #[test]
     fn test_error_display_io() {
         let err: Error = Error::Io(io::Error::new(io::ErrorKind::NotFound, "no such file"));
         assert_eq!(format!("{}", err), "no such file");
     }
 
-    // source() returns Some only for Io and Parse, None for all other variants
     #[test]
     fn test_error_source() {
         assert!(Error::FontFormat("x").source().is_none());
         assert!(Error::CodeTag(1).source().is_none());
         assert!(Error::LineFull.source().is_none());
         assert!(Error::FontNotFound(PathBuf::from("/x")).source().is_none());
-        assert!(Error::Cli("x".to_string()).source().is_none());
+        assert!(Error::ControlFormat("x").source().is_none());
+        assert!(Error::ControlRangeMismatch.source().is_none());
 
         let io_err = io::Error::new(io::ErrorKind::NotFound, "msg");
         assert!(Error::Io(io_err).source().is_some());

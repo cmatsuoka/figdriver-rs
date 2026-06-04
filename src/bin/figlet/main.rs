@@ -1,7 +1,8 @@
 use std::ffi::OsString;
+use std::fmt;
 use std::io::{self, BufRead};
 use std::path::{Path, PathBuf, is_separator};
-use figdriver::{Error, Control};
+use figdriver::Control;
 
 mod cli;
 
@@ -22,6 +23,35 @@ const fn first_line(s: &str) -> &str {
 
 const COPYRIGHT_NOTICE: &str = first_line(LICENSE);
 
+#[derive(Debug)]
+enum Error {
+    Cli(String),
+    Library(figdriver::Error),
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Error::Cli(msg)   => write!(f, "{}", msg),
+            Error::Library(e) => write!(f, "{}", e),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::Cli(_)     => None,
+            Error::Library(e) => Some(e),
+        }
+    }
+}
+
+impl From<figdriver::Error> for Error {
+    fn from(e: figdriver::Error) -> Self {
+        Error::Library(e)
+    }
+}
 
 fn main() -> Result<(), Error> {
     let mut args = cli::Args::from_env();
@@ -183,7 +213,8 @@ fn main() -> Result<(), Error> {
             paragraph,
             justify,
             control_paths,
-        })
+        })?;
+    Ok(())
 }
 
 fn print_infocode(code: i32, font_dir: &str, font_name: &str, width: usize) {
@@ -287,9 +318,9 @@ struct RunConfig {
     control_paths: Vec<PathBuf>,
 }
 
-fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
+fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), figdriver::Error> {
     if !path.exists() {
-        return Err(Error::FontNotFound(path.to_path_buf()));
+        return Err(figdriver::Error::FontNotFound(path.to_path_buf()));
     }
 
     let font = figdriver::FIGfont::from_path(path)?;
