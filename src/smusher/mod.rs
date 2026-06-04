@@ -9,7 +9,7 @@ pub(crate) fn display_width(s: &str) -> usize {
 }
 
 mod charsmush;
-pub mod strsmush;
+pub(crate) mod strsmush;
 
 /// Layout mode for horizontal character arrangement.
 ///
@@ -257,7 +257,7 @@ impl<'a> Smusher<'a> {
         }
     }
 
-   /// Obtain the size, in sub-characters, of any line of the output buffer.
+    /// Obtain the size, in sub-characters, of any line of the output buffer.
     pub fn len(&self) -> usize {
         let s: &str = &self.output[0];
         display_width(s)
