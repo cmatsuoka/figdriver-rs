@@ -125,7 +125,7 @@ impl FIGfont {
 
         let parms = line.split_whitespace().collect::<Vec<&str>>();
 
-        if parms[0].len() < 6 {
+        if parms[0].chars().count() < 6 {
             return Err(Error::FontFormat("unsupported font format"));
         }
 

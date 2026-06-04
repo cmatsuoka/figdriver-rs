@@ -16,6 +16,7 @@ doc = false
 [dependencies]
 pico-args = { version = "0.5", features = ["combined-flags", "short-space-opt", "eq-separator"] }
 terminal_size = "0.4"
+unicode-width = "0.2"
 zip = { version = "8", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]

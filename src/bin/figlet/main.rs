@@ -214,8 +214,9 @@ fn strip_font_suffix(name: &str) -> &str {
         .unwrap_or(name)
 }
 
-fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
-    if !name.ends_with(".flf") && !name.ends_with(".tlf") {
+fn find_font(font_dir: PathBuf, mut name: String) -> PathBuf {
+    let has_ext = name.ends_with(".flf") || name.ends_with(".tlf");
+    if !has_ext {
         name = format!("{}.flf", name);
     }
 
@@ -223,9 +224,19 @@ fn find_font(mut fontpath: PathBuf, mut name: String) -> PathBuf {
         return PathBuf::from(name);
     }
 
+    let mut fontpath = font_dir.clone();
     fontpath.push(&name);
     if fontpath.exists() {
         return fontpath;
+    }
+
+    if !has_ext {
+        let tlf_name = format!("{}.tlf", &name[..name.len() - 4]);
+        let mut tlf_path = font_dir;
+        tlf_path.push(&tlf_name);
+        if tlf_path.exists() {
+            return tlf_path;
+        }
     }
 
     PathBuf::from(name)
