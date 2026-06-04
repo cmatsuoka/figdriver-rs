@@ -104,7 +104,7 @@ fn infocode_five_supported_formats() {
     let output = cmd.output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    assert_eq!(stdout, "flf2");
+    assert_eq!(stdout, "flf2 tlf2");
 }
 
 #[test]

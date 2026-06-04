@@ -208,7 +208,7 @@ impl TransformationStage {
 
 impl Control {
     /// Create a pipeline from multiple control file paths.
-    pub fn from_paths(paths: &[std::path::PathBuf]) -> Result<Self, Error> {
+    pub fn from_paths<P: AsRef<Path>, I: IntoIterator<Item = P>>(paths: I) -> Result<Self, Error> {
         let mut files = Vec::new();
         let mut encoding = InputEncoding::Default;
 
