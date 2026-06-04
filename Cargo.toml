@@ -20,9 +20,13 @@ path = "src/bin/figlet/main.rs"
 doc = false
 required-features = ["cli"]
 
+[[test]]
+name = "terminal_width"
+required-features = ["cli"]
+
 [features]
 default = []
-cli = ["pico-args", "terminal_size"]
+cli = ["dep:pico-args", "dep:terminal_size"]
 
 [dependencies]
 unicode-width = "0.2"
