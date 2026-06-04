@@ -147,7 +147,7 @@ pub struct Smusher<'a> {
 
 impl<'a> Smusher<'a> {
     /// Replace hardblanks in the given lines with spaces.
-    pub fn replace_hardblanks(&self, lines: &mut [String]) {
+    pub(crate) fn replace_hardblanks(&self, lines: &mut [String]) {
         let hb = self.font.hardblank;
         for line in lines {
             *line = line.replace(hb, " ");
