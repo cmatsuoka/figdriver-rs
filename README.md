@@ -28,16 +28,16 @@ replacement for the classic `figlet` command.
 
 ## Installation
 
-Install from source:
+Install the binary from source:
 
 ```bash
-cargo install --path .
+cargo install --path . --features cli
 ```
 
 Or build locally:
 
 ```bash
-cargo build --release
+cargo build --release --features cli
 ```
 
 The resulting binary is `target/release/figlet`.
@@ -50,6 +50,8 @@ Add to your `Cargo.toml`:
 [dependencies]
 figdriver = "0.2"
 ```
+
+The library has minimal dependencies (`unicode-width`, `zip`). The `figlet` binary requires the `cli` feature (`pico-args`, `terminal_size`).
 
 Load a font and render text with `Smusher`:
 

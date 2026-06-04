@@ -18,12 +18,52 @@ path = "src/lib.rs"
 name = "figlet"
 path = "src/bin/figlet/main.rs"
 doc = false
+required-features = ["cli"]
+
+[[test]]
+name = "align_flags"
+required-features = ["cli"]
+
+[[test]]
+name = "information_flags"
+required-features = ["cli"]
+
+[[test]]
+name = "invalid_flag"
+required-features = ["cli"]
+
+[[test]]
+name = "last_flag_wins"
+required-features = ["cli"]
+
+[[test]]
+name = "smush_flags"
+required-features = ["cli"]
+
+[[test]]
+name = "terminal_width"
+required-features = ["cli"]
+
+[[test]]
+name = "whitespace_tokenization"
+required-features = ["cli"]
+
+[features]
+default = []
+cli = ["dep:pico-args", "dep:terminal_size"]
 
 [dependencies]
-pico-args = { version = "0.5", features = ["combined-flags", "short-space-opt", "eq-separator"] }
-terminal_size = "0.4"
 unicode-width = "0.2"
 zip = { version = "8", default-features = false, features = ["deflate"] }
+
+[dependencies.pico-args]
+version = "0.5"
+features = ["combined-flags", "short-space-opt", "eq-separator"]
+optional = true
+
+[dependencies.terminal_size]
+version = "0.4"
+optional = true
 
 [dev-dependencies]
 tempfile = "3"
