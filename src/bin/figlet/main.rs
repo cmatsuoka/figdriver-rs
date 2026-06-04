@@ -214,28 +214,21 @@ fn strip_font_suffix(name: &str) -> &str {
         .unwrap_or(name)
 }
 
-fn find_font(font_dir: PathBuf, mut name: String) -> PathBuf {
-    let has_ext = name.ends_with(".flf") || name.ends_with(".tlf");
-    if !has_ext {
-        name = format!("{}.flf", name);
-    }
-
+fn find_font(font_dir: PathBuf, name: String) -> PathBuf {
     if name.starts_with(is_separator) {
-        return PathBuf::from(name);
+        return PathBuf::from(&name);
     }
 
-    let mut fontpath = font_dir.clone();
-    fontpath.push(&name);
-    if fontpath.exists() {
-        return fontpath;
-    }
+    let candidates = if name.ends_with(".flf") || name.ends_with(".tlf") {
+        vec![name.clone()]
+    } else {
+        vec![format!("{}.flf", name), format!("{}.tlf", name)]
+    };
 
-    if !has_ext {
-        let tlf_name = format!("{}.tlf", &name[..name.len() - 4]);
-        let mut tlf_path = font_dir;
-        tlf_path.push(&tlf_name);
-        if tlf_path.exists() {
-            return tlf_path;
+    for candidate in candidates {
+        let path = font_dir.join(&candidate);
+        if path.exists() {
+            return path;
         }
     }
 
