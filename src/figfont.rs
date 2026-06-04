@@ -125,7 +125,7 @@ impl FIGfont {
 
         let parms = line.split_whitespace().collect::<Vec<&str>>();
 
-        if parms[0].len() < 6 {
+        if parms[0].chars().count() < 6 {
             return Err(Error::FontFormat("unsupported font format"));
         }
 
@@ -432,6 +432,37 @@ mod tests {
         assert_eq!(font.height, 6);
         assert_eq!(font.hardblank, '$');
         assert!(font.layout > 0);
+    }
+
+    // Loading a TLF font (tlf2 magic) with UTF-8 box-drawing sub-characters
+    #[test]
+    fn test_tlf_font_load() {
+        let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/tests/fixtures/emboss.tlf";
+        let font = FIGfont::from_path(&path).unwrap();
+        assert_eq!(font.height, 3);
+        assert_eq!(font.hardblank, '\u{7f}');
+        assert_eq!(font.layout, 0);
+
+        let ch = 'A';
+        assert_eq!(font.get(ch).unwrap().get(), &[
+            "\u{250f}\u{2501}\u{2503}".to_string(),
+            "\u{250f}\u{2501}\u{2503}".to_string(),
+            "\u{251b} \u{251b}".to_string(),
+        ]);
+
+        let ch = 'H';
+        assert_eq!(font.get(ch).unwrap().get(), &[
+            "\u{2503} \u{2503}".to_string(),
+            "\u{250f}\u{2501}\u{2503}".to_string(),
+            "\u{251b} \u{251b}".to_string(),
+        ]);
+
+        let ch = 'I';
+        assert_eq!(font.get(ch).unwrap().get(), &[
+            "\u{251b}".to_string(),
+            "\u{2503}".to_string(),
+            "\u{251b}".to_string(),
+        ]);
     }
 
     // Older font header with only 6 required params (no print_direction, full_layout, codetag_count)
