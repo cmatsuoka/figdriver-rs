@@ -7,13 +7,21 @@ use std::path::Path;
 use crate::Error;
 use crate::zip::{is_zip, decompress_zip};
 
+/// Horizontal smush rule 1: smushes identical sub-characters together.
 pub const SMUSH_EQUAL    : u32 = 1;
+/// Horizontal smush rule 2: replaces underscore with vertical, angled, or bracket characters.
 pub const SMUSH_UNDERLINE: u32 = 2;
+/// Horizontal smush rule 3: uses a hierarchy (|, /, [], {}, (), <>) with later classes winning.
 pub const SMUSH_HIERARCHY: u32 = 4;
+/// Horizontal smush rule 4: replaces opposing bracket/brace/paren pairs with a vertical bar.
 pub const SMUSH_PAIR     : u32 = 8;
+/// Horizontal smush rule 5: smushes / and \ into |, \ and / into Y, > and < into X.
 pub const SMUSH_BIGX     : u32 = 16;
+/// Horizontal smush rule 6: smushes two hardblanks into a single hardblank.
 pub const SMUSH_HARDBLANK: u32 = 32;
+/// Horizontal fitting (kerning) by default; characters are placed with minimal overlap.
 pub const SMUSH_KERN     : u32 = 64;
+/// Horizontal smushing by default; overrides SMUSH_KERN when both are set.
 pub const SMUSH_ENABLE   : u32 = 128;
 
 /// A font made of large ASCII-art characters.
@@ -26,13 +34,24 @@ pub const SMUSH_ENABLE   : u32 = 128;
 #[derive(Debug, Default)]
 pub struct FIGfont {
     version       : char,     // font standard version (currently 'a')
-    pub hardblank : char,     // sub-character used to represent hardblanks
-    pub height    : usize,
+    /// The sub-character used to represent hardblanks in FIGcharacter data.
+    /// Hardblanks are invisible placeholders that participate in smushing
+    /// and kerning, displayed as a space in the output.
+    pub hardblank     : char,
+    /// Number of lines in each FIGcharacter.
+    pub height        : usize,
     baseline      : usize,    // number of lines from the baseline of a FIGcharacter
     max_length    : usize,    // maximum length of any line describing a FIGcharacter
+    /// Legacy layout parameter for backward compatibility.
+    /// -1 means full-width layout, 0 means horizontal fitting (kerning),
+    /// and positive values are bitmasks of horizontal smushing rules.
     pub old_layout: i32,
     comment_lines : usize,    // number of comment lines at the start of the file
+    /// Default print direction: true for right-to-left, false for left-to-right.
     pub right_to_left : bool,
+    /// Full layout parameter describing horizontal and vertical layout modes
+    /// and smushing rules as a bitmask. See the FIGfont specification for
+    /// the complete list of code values (0 to 32767).
     pub layout    : u32,
     count         : u32,      // number of code-tagged FIGcharacters in this FIGfont
     chars         : HashMap<i32, FIGchar>, // actual FIGcharacter definitions for this font

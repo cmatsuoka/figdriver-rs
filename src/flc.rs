@@ -8,6 +8,7 @@ use crate::zip::{is_zip, decompress_zip};
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum FlcCommand {
+    /// Maps a single input code to an output code.
     Single { input: i32, output: i32 },
     /// Range transformation: maps input_start..=input_end to output_start..=output_end.
     /// output_end is parsed from the FLC file for range-size validation but not needed
@@ -19,40 +20,58 @@ pub enum FlcCommand {
 /// Within a stage, only the first matching command is applied.
 #[derive(Debug, Clone)]
 pub struct TransformationStage {
+    /// The list of transformation commands in this stage.
     commands: Vec<FlcCommand>,
 }
 
 /// Input encoding mode for multi-byte character processing.
+/// Determines how the FIGdriver interprets multi-byte character input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputEncoding {
+    /// Default encoding (no special handling).
     Default,
+    /// HZ encoding for simplified Chinese text.
     HZ,
+    /// Shift-JIS encoding for Japanese text.
     ShiftJIS,
+    /// Generic double-byte character set encoding.
     Dbcs,
+    /// UTF-8 encoding for Unicode text.
     UTF8,
 }
 
 /// Size of an ISO 2022 character set.
+/// Defines the number of assignable characters in each row/column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Iso2022CharSetSize {
+    /// 94-character set (standard ISO 2022 size).
     Bits94,
+    /// 96-character set (extended ISO 2022 size).
     Bits96,
+    /// 94x94 two-byte character set.
     Bits94x94,
 }
 
 /// An ISO 2022 character set assignment.
+/// Associates a G-register with a character set size and designating byte.
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct Iso2022CharSet {
+    /// The size of the character set (94, 96, or 94x94).
     size: Iso2022CharSetSize,
+    /// The designating byte used to identify the character set.
     designating_byte: i32,
 }
 
-/// Accumulated ISO 2022 settings from "g" commands.
+/// Accumulated ISO 2022 settings from "g" commands in a control file.
+/// Manages G-register assignments and half-character mapping.
 #[derive(Debug, Clone)]
 pub struct Iso2022Settings {
+    /// G0-G3 character set register assignments.
     g_sets: [Option<Iso2022CharSet>; 4],
+    /// G-register used for the left half of two-byte characters.
     left_half: i32,
+    /// G-register used for the right half of two-byte characters.
     right_half: i32,
 }
 
@@ -72,17 +91,24 @@ impl Default for Iso2022Settings {
 }
 
 /// A parsed FIGfont control file (.flc).
+/// Contains transformation stages, encoding settings, and ISO 2022 configuration.
 #[derive(Debug, Clone)]
 pub struct Flc {
+    /// Sequential transformation stages applied in order.
     stages: Vec<TransformationStage>,
+    /// The input encoding specified by the control file.
     encoding: InputEncoding,
+    /// ISO 2022 settings accumulated from "g" commands.
     iso2022: Iso2022Settings,
 }
 
 /// Pipeline for chaining multiple control files together.
+/// Applies each control file's transformations in sequence.
 #[derive(Debug, Clone)]
 pub struct Control {
+    /// Ordered list of control files to apply.
     files: Vec<Flc>,
+    /// Effective encoding from the last control file in the pipeline.
     encoding: InputEncoding,
 }
 
