@@ -1,6 +1,6 @@
 use std::cmp::min;
 pub use crate::figfont::{FIGchar, FIGfont};
-use crate::flc::FlcPipeline;
+use crate::flc::Control;
 use crate::SMUSH_ENABLE;
 use unicode_width::UnicodeWidthChar;
 
@@ -86,14 +86,14 @@ impl LayoutMode {
 /// ```
 pub struct SmusherBuilder<'a> {
     font: &'a FIGfont,
-    control: Option<&'a FlcPipeline>,
+    control: Option<&'a Control>,
     layout_mode: LayoutMode,
     right_to_left: Option<bool>,
 }
 
 impl<'a> SmusherBuilder<'a> {
     /// Set an optional character-mapping control pipeline.
-    pub fn control(mut self, control: Option<&'a FlcPipeline>) -> Self {
+    pub fn control(mut self, control: Option<&'a Control>) -> Self {
         self.control = control;
         self
     }
@@ -142,7 +142,7 @@ pub struct Smusher<'a> {
     right2left: bool,
     font          : &'a FIGfont,
     output        : Vec<String>,
-    control       : Option<&'a FlcPipeline>,
+    control       : Option<&'a Control>,
 }
 
 impl<'a> Smusher<'a> {

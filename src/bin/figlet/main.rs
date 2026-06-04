@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 use std::io::{self, BufRead};
 use std::path::{Path, PathBuf, is_separator};
-use figdriver::{Error, FlcPipeline};
+use figdriver::{Error, Control};
 
 mod cli;
 
@@ -296,7 +296,7 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     let control = if cfg.control_paths.is_empty() {
         None
     } else {
-        Some(FlcPipeline::from_paths(&cfg.control_paths)?)
+        Some(Control::from_paths(&cfg.control_paths)?)
     };
 
     let layout_mode = cfg.layout_mode.unwrap_or(figdriver::LayoutMode::Default);

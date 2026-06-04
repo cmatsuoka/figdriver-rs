@@ -81,7 +81,7 @@ pub struct Flc {
 
 /// Pipeline for chaining multiple control files together.
 #[derive(Debug, Clone)]
-pub struct FlcPipeline {
+pub struct Control {
     files: Vec<Flc>,
     encoding: InputEncoding,
 }
@@ -206,7 +206,7 @@ impl TransformationStage {
     }
 }
 
-impl FlcPipeline {
+impl Control {
     /// Create a pipeline from multiple control file paths.
     pub fn from_paths(paths: &[std::path::PathBuf]) -> Result<Self, Error> {
         let mut files = Vec::new();
@@ -218,7 +218,7 @@ impl FlcPipeline {
             files.push(flc);
         }
 
-        Ok(FlcPipeline { files, encoding })
+        Ok(Control { files, encoding })
     }
 
     /// Apply all transformations across all files in order.
@@ -876,24 +876,24 @@ mod tests {
         assert_eq!(flc.encoding(), InputEncoding::UTF8);
     }
 
-    // FlcPipeline chains multiple files
+    // Control chains multiple files
     #[test]
     fn test_pipeline_chains() {
         let file1 = create_flc("t a-z A-Z\n");
         let file2 = create_flc("t A B\n");
         let paths = vec![file1.path().to_path_buf(), file2.path().to_path_buf()];
-        let pipeline = FlcPipeline::from_paths(&paths).unwrap();
+        let pipeline = Control::from_paths(&paths).unwrap();
         assert_eq!(pipeline.apply('a' as i32), 'B' as i32);
         assert_eq!(pipeline.apply('b' as i32), 'B' as i32);
     }
 
-    // Pipeline encoding is last file's encoding
+    // Encoding is last file's encoding
     #[test]
     fn test_pipeline_encoding() {
         let file1 = create_flc("h\n");
         let file2 = create_flc("u\n");
         let paths = vec![file1.path().to_path_buf(), file2.path().to_path_buf()];
-        let pipeline = FlcPipeline::from_paths(&paths).unwrap();
+        let pipeline = Control::from_paths(&paths).unwrap();
         assert_eq!(pipeline.encoding(), InputEncoding::UTF8);
     }
 

@@ -7,7 +7,7 @@ use std::path::PathBuf;
 pub use self::figfont::*;
 pub use self::wrapper::{Align, Wrapper};
  pub use self::smusher::{LayoutMode, Smusher};
-pub use self::flc::{Flc, FlcPipeline};
+pub use self::flc::{Flc, Control};
 
 mod figfont;
 mod wrapper;

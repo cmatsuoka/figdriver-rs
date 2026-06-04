@@ -305,7 +305,7 @@ fn flc_all_chars_skipped_produces_no_output() {
     // are missing from the font, the wrapper should produce no output (matching
     // reference figlet behavior). See GitHub issue #36.
     let font = load_font("fonts/standard.flf");
-    let pipeline = figdriver::FlcPipeline::from_paths(&[
+    let pipeline = figdriver::Control::from_paths(&[
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fonts/frango.flc"),
     ]).unwrap();
     let sm = figdriver::Smusher::builder(&font)
