@@ -203,7 +203,7 @@ impl<'a> Smusher<'a> {
     }
 
     /// Get the contents of the output buffer, preserving hardblanks for further processing.
-    pub fn get_raw(&self) -> Vec<String> {
+    pub(crate) fn get_raw(&self) -> Vec<String> {
         self.output.to_vec()
     }
 
@@ -265,7 +265,7 @@ impl<'a> Smusher<'a> {
 
     /// Limit the size, in sub-characters, of the output buffer. If the buffer is longer than
     /// the specified size, the rightmost sub-characters will be removed.
-    pub fn trim(&mut self, width: usize) {
+    pub(crate) fn trim(&mut self, width: usize) {
         self.output = trim(&self.output, width);
     }
 }
