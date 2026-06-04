@@ -1,0 +1,175 @@
+.TH FIGLET 1 "June 2026" "figdriver\-rs 0.2.0" "User Commands"
+.SH NAME
+figlet \- render text as ASCII art banners using FIGfont files
+.SH SYNOPSIS
+.B figlet
+[options] [message]
+.SH DESCRIPTION
+.B figlet
+is a command\-line tool that renders text as large ASCII art banners using
+FIGfont (\fB.flf\fR) or TOIlet (\fB.tlf\fR) font files. It is a Rust
+implementation of the FIGfont 2 renderer, powered by the figdriver library.
+.PP
+The tool supports multiple layout modes (kerning, smushing, overlap, full
+width), bidirectional text (left\-to\-right and right\-to\-left), word wrapping
+with configurable alignment, and character mapping via control files (.flc).
+.PP
+When a message is provided as arguments, it is rendered directly. If no
+message is given, input is read from standard input.
+.SH OPTIONS
+.B figlet
+processes options from left to right; when conflicting options are given,
+the last one takes effect.
+.TP
+.B "\-f, \-\-font"
+.IR fontfile
+Select the font to use. The
+.B .flf
+or
+.B .tlf
+suffix may be omitted. The font is looked up in the font directory set by
+\fB\-d\fR. Defaults to
+.IR standard.flf .
+.TP
+.B "\-d, \-\-dir"
+.IR fontdirectory
+Set the font search directory. Defaults to
+.IR /usr/share/figlet .
+.TP
+.B "\-c, \-\-center"
+Center output horizontally within the output width.
+.TP
+.B "\-l, \-\-left"
+Flush\-left alignment.
+.TP
+.B "\-r, \-\-right"
+Flush\-right alignment.
+.TP
+.B "\-x, \-\-default\-align"
+(default) Align according to print direction: left for left\-to\-right, right
+for right\-to\-left.
+.TP
+.B "\-t, \-\-terminal\-width"
+Query the terminal for its current width and use it as the output width. Falls
+back to 80 if the terminal size is unavailable.
+.TP
+.B "\-w, \-\-width"
+.IR cols
+Set the output width in columns. This determines where wrapped lines break
+and how centered output is padded. Defaults to 80.
+.TP
+.B "\-S, \-\-smush"
+Force smushing: adjacent characters overlap according to their smush parameters.
+.TP
+.B "\-s, \-\-smush\-default"
+Use the font's own default layout mode for each character.
+.TP
+.B "\-o, \-\-overlap"
+Overlap mode: characters overlap but do not smush.
+.TP
+.B "\-k, \-\-kern"
+Kerning mode: adjacent characters are kerned (trimmed) but do not overlap.
+.TP
+.B "\-W, \-\-full\-width"
+Full width mode: characters are rendered at their full declared width with no
+smushing or kerning.
+.TP
+.B "\-m, \-\-layout\-mode"
+.IR mode
+Override the font's layout mode with an integer. 0 = kern, \-1 = full width,
+\-2 = smush default, any positive value = custom mode.
+.TP
+.B "\-p, \-\-paragraph"
+Paragraph mode. Input newlines are collapsed into spaces within a paragraph; a
+blank line terminates the paragraph and forces a break.
+.TP
+.B "\-n, \-\-normal"
+(default) Normal mode. Each input newline produces a separate output line.
+.TP
+.B "\-L, \-\-left\-to\-right"
+Force left\-to\-right print direction.
+.TP
+.B "\-R, \-\-right\-to\-left"
+Force right\-to\-left print direction.
+.TP
+.B "\-X, \-\-font\-direction"
+(default) Use the print direction declared by the font file.
+.TP
+.B "\-C, \-\-control"
+.IR controlfile
+Load a control file (.flc) for character mapping. May be repeated; control
+files are applied in the order given.
+.TP
+.B "\-I, \-\-infocode"
+.IR num
+Print metadata for infocode
+.I num
+(0\-5) and exit:
+.RS
+.TP
+.B 0
+Copyright notice and version string.
+.TP
+.B 1
+Version encoded as an integer (major*10000 + minor*100 + patch).
+.TP
+.B 2
+Default font directory.
+.TP
+.B 3
+Default font name (suffix stripped).
+.TP
+.B 4
+Output width.
+.TP
+.B 5
+Supported FIGfont format identifiers (always "flf2 tlf2").
+.RE
+.TP
+.B "\-v, \-\-version"
+Print the version and exit.
+.TP
+.B "\-h, \-\-help"
+Print usage information and exit.
+.SH EXAMPLES
+.PP
+Render text with the default font:
+.RS
+.nf
+figlet Hello
+.RE
+.RE
+.PP
+Render text with a specific font and center\-aligned output:
+.RS
+.nf
+echo "figdriver\-rs" | figlet \-c \-f banner
+.RE
+.RE
+.PP
+Use a custom font and control file:
+.RS
+.nf
+figlet \-f standard \-C slip "Hello"
+.RE
+.RE
+.SH ENVIRONMENT
+.TP
+.B FIGLET_FONTDIR
+If set, use the given directory as the default font search directory, instead
+of
+.IR /usr/share/figlet .
+This can be overridden with
+.BR \-d .
+.SH FILES
+.TP
+.I /usr/share/figlet
+Default directory searched for fonts and control files.
+.SH BUGS
+Report bugs at <https://github.com/cmatsuoka/figdriver-rs/issues>.
+.SH AUTHORS
+This
+.I figlet
+This implementation is written by Claudio Matsuoka <cmatsuoka@gmail.com>,
+based on the original FIGlet project by Glenn Chappell, Ian Chai, and
+John Cowan.

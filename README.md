@@ -139,8 +139,6 @@ figlet -f small "Hello, World!"
 
 echo "figdriver-rs" | figlet -c -f banner
 
-figlet -R -f standard مرحبا
-
 figlet -C slip -f standard "Hello"
 ```
 

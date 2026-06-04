@@ -64,6 +64,7 @@ fn main() -> Result<(), Error> {
 
     let font_dir = args.opt_value_from_str::<String>(["-d", "--dir"])
         .map_err(|e| Error::Cli(e.to_string()))?
+        .or_else(|| std::env::var("FIGLET_FONTDIR").ok())
         .unwrap_or(FONT_DIR.to_string());
 
     let font_name = args.opt_value_from_str::<String>(["-f", "--font"])
@@ -195,7 +196,7 @@ fn print_infocode(code: i32, font_dir: &str, font_name: &str, width: usize) {
         2 => { println!("{}", font_dir); }
         3 => { println!("{}", strip_font_suffix(font_name)); }
         4 => { println!("{}", width); }
-        5 => { println!("flf2"); }
+        5 => { println!("flf2 tlf2"); }
         // Reference figlet exits silently (code 0) for unsupported infocodes.
         _ => {}
     }
