@@ -333,7 +333,7 @@ impl<'a> Wrapper<'a> {
 /// Check whether a code represents a horizontal whitespace character
 /// (space, tab, form feed, or other ASCII whitespace).
 fn is_space(code: i32) -> bool {
-    code == 32 || code == 9 || (code >= 11 && code <= 13)
+    code == 32 || code == 9 || (11..=13).contains(&code)
 }
 
 /// Normalize carriage return codes to newline codes.

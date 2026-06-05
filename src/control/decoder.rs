@@ -78,7 +78,7 @@ impl EncodingDecoder<'_> {
                 let mid = (remaining[1] & 0x3F) as u32;
                 let lo = (remaining[2] & 0x3F) as u32;
                 let cp = (hi << 12) | (mid << 6) | lo;
-                if cp >= 0x800 && (cp < 0xD800 || cp > 0xDFFF) {
+                if cp >= 0x800 && !(0xD800..=0xDFFF).contains(&cp) {
                     (cp as i32, 3)
                 } else {
                     (128, 1)
@@ -97,7 +97,7 @@ impl EncodingDecoder<'_> {
                 let mid2 = (remaining[2] & 0x3F) as u32;
                 let lo = (remaining[3] & 0x3F) as u32;
                 let cp = (hi << 18) | (mid1 << 12) | (mid2 << 6) | lo;
-                if cp >= 0x10000 && cp <= 0x10FFFF {
+                if (0x10000..=0x10FFFF).contains(&cp) {
                     (cp as i32, 4)
                 } else {
                     (128, 1)
@@ -139,7 +139,7 @@ impl EncodingDecoder<'_> {
         }
         let b = self.bytes[self.pos];
 
-        let is_high_byte = (b >= 0x80 && b <= 0x9F) || (b >= 0xE0 && b <= 0xEF);
+        let is_high_byte = (0x80..=0x9F).contains(&b) || (0xE0..=0xEF).contains(&b);
 
         if is_high_byte && self.pos + 1 < self.bytes.len() {
             let hi = b;
