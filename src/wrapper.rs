@@ -228,7 +228,7 @@ impl<'a> Wrapper<'a> {
             return;
         }
 
-        self.wrap_segment(codes, flush);
+        self.wrap_segment(&normalized, flush);
     }
 
     /// Add a string to the output buffer, wrapping it if necessary.
