@@ -4,26 +4,6 @@ use std::path::Path;
 use crate::Error;
 use crate::zip::{is_zip, decompress_zip};
 
-/// A single transformation command within a stage.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-enum FlcCommand {
-    /// Maps a single input code to an output code.
-    Single { input: i32, output: i32 },
-    /// Range transformation: maps input_start..=input_end to output_start..=output_end.
-    /// output_end is parsed from the FLC file for range-size validation but not needed
-    /// for the actual transformation (both ranges must be the same size).
-    Range { input_start: i32, input_end: i32, output_start: i32, output_end: i32 },
-}
-
-/// One transformation stage, consisting of a sequence of commands.
-/// Within a stage, only the first matching command is applied.
-#[derive(Debug, Clone)]
-struct TransformationStage {
-    /// The list of transformation commands in this stage.
-    commands: Vec<FlcCommand>,
-}
-
 /// Input encoding mode for multi-byte character processing.
 /// Determines how the FIGdriver interprets multi-byte character input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,6 +68,26 @@ impl Default for Iso2022Settings {
             right_half: 1,
         }
     }
+}
+
+/// A single transformation command within a stage.
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+enum FlcCommand {
+    /// Maps a single input code to an output code.
+    Single { input: i32, output: i32 },
+    /// Range transformation: maps input_start..=input_end to output_start..=output_end.
+    /// output_end is parsed from the FLC file for range-size validation but not needed
+    /// for the actual transformation (both ranges must be the same size).
+    Range { input_start: i32, input_end: i32, output_start: i32, output_end: i32 },
+}
+
+/// One transformation stage, consisting of a sequence of commands.
+/// Within a stage, only the first matching command is applied.
+#[derive(Debug, Clone)]
+struct TransformationStage {
+    /// The list of transformation commands in this stage.
+    commands: Vec<FlcCommand>,
 }
 
 /// A parsed FIGfont control file (.flc).
@@ -477,7 +477,7 @@ fn parse_char_code(s: &str) -> Result<i32, Error> {
 
 /// Parse an escape sequence after the backslash.
 /// Per spec: \65 is decimal 65, \0x100 is hex 256.
-/// Handles concatenated \\0xNN escapes (e.g., \0x01\0x01 = 0x0101).
+/// Handles concatenated \0xNN escapes (e.g., \0x01\0x01 = 0x0101).
 fn parse_escape_sequence(s: &str) -> Result<i32, Error> {
     if s.is_empty() {
         return Ok(32);
@@ -513,7 +513,7 @@ fn parse_escape_sequence(s: &str) -> Result<i32, Error> {
         }
         '0' => {
             if s.len() > 1 && (s.as_bytes()[1] == b'x' || s.as_bytes()[1] == b'X') {
-                // Handle concatenated \\0xNN escapes
+                // Handle concatenated \0xNN escapes
                 parse_concatenated_hex(s)
             } else if s.len() > 1 {
                 let val = i32::from_str_radix(s, 8).map_err(|_| Error::ControlFormat("invalid octal escape"))?;
@@ -539,7 +539,7 @@ fn parse_escape_sequence(s: &str) -> Result<i32, Error> {
 /// Parse concatenated hex escapes (e.g., "0x01\\0x01" -> 0x0101).
 /// For single escape (e.g., "0x03b1"), parses as one value (0x03B1 = 945).
 fn parse_concatenated_hex(s: &str) -> Result<i32, Error> {
-    // Count how many \\0x prefixes are in the string
+    // Count how many \0x prefixes are in the string
     let num_prefixes = s.matches("0x").count() + s.matches("0X").count();
 
     if num_prefixes == 1 {
@@ -548,7 +548,7 @@ fn parse_concatenated_hex(s: &str) -> Result<i32, Error> {
         let val = i32::from_str_radix(hex_str, 16).map_err(|_| Error::ControlFormat("invalid hex escape"))?;
         Ok(val)
     } else {
-        // Multiple escapes, concatenate 2 hex digits per \\0x prefix
+        // Multiple escapes, concatenate 2 hex digits per \0x prefix
         let mut result: i32 = 0;
         let mut remaining = s;
 

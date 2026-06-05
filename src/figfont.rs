@@ -1,4 +1,3 @@
-use std::char;
 use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
@@ -67,18 +66,17 @@ impl FIGfont {
         Ok(font)
     }
 
-    /// Obtain the FIGchar in this font for the given char.
+    /// Obtain the FIGchar in this font for the given character code.
     ///
-    /// Returns `None` if neither the character nor its fallback ('\0' code)
+    /// Returns `None` if neither the code nor its fallback (code 0)
     /// is defined in the font, per spec: "If there is no FIGcharacter 0,
-    /// nothing will be printed."
-    pub fn get(&self, ch: char) -> Option<&FIGchar> {
-        let code = ch as i32;
+    /// nothing will be printed." Code 9 (tab) falls back to code 32 (space).
+    pub fn get(&self, code: i32) -> Option<&FIGchar> {
         match self.chars.get(&code) {
             Some(k) => Some(k),
             None => {
-                let fallback = if ch == '\t' { ' ' } else { '\0' };
-                self.chars.get(&(fallback as i32))
+                let fallback = if code == 9 { 32i32 } else { 0i32 };
+                self.chars.get(&fallback)
             }
         }
     } 
@@ -320,7 +318,7 @@ mod tests {
         let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
         let font = FIGfont::from_path(&path).unwrap();
 
-    let ch = ' ';
+        let ch = ' ' as i32;
         assert_eq!(font.get(ch).unwrap().get(), &[
             " $".to_string(),
             " $".to_string(),
@@ -330,7 +328,7 @@ mod tests {
             " $".to_string(),
         ]);
 
-       let ch = 'A';
+        let ch = 'A' as i32;
         assert_eq!(font.get(ch).unwrap().get(), &[
             r"     _    ".to_string(),
             r"    / \   ".to_string(),
@@ -340,8 +338,7 @@ mod tests {
             r"          ".to_string(),
         ]);
 
-        let ch = char::from_u32(223).unwrap();
-        assert_eq!(font.get(ch).unwrap().get(), &[
+        assert_eq!(font.get(223).unwrap().get(), &[
             r"   ___ ".to_string(),
             r"  / _ \".to_string(),
             r" | |/ /".to_string(),
@@ -350,8 +347,7 @@ mod tests {
             r" |_|   ".to_string(),
         ]);
 
-        let ch = char::from_u32(3232).unwrap();
-        assert_eq!(font.get(ch).unwrap().get(), &[
+        assert_eq!(font.get(3232).unwrap().get(), &[
             r"   _____)".to_string(),
             r"  /_ ___/".to_string(),
             r"  / _ \  ".to_string(),
@@ -366,7 +362,7 @@ mod tests {
         let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
         let font = FIGfont::from_path(&path).unwrap();
 
-    let ch = '\t';
+    let ch = '\t' as i32;
         assert_eq!(font.get(ch).unwrap().get(), &[
             " $".to_string(),
             " $".to_string(),
@@ -400,13 +396,13 @@ mod tests {
         assert_eq!(format!("{}", c), "");
     }
 
-    // get('\0') returns None when font does not define FIGcharacter 0
+    // get(0) returns None when font does not define FIGcharacter 0
     // Per spec: "If there is no FIGcharacter 0, nothing will be printed."
     #[test]
     fn test_font_get_missing_null() {
         let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
         let font = FIGfont::from_path(&path).unwrap();
-        assert!(font.get('\0').is_none());
+        assert!(font.get(0i32).is_none());
     }
 
     // get() for unknown codepoint returns None when code 0 is not defined
@@ -414,16 +410,16 @@ mod tests {
     fn test_font_get_unknown_char_none() {
         let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
         let font = FIGfont::from_path(&path).unwrap();
-        assert!(font.get('\u{1F600}').is_none());
+        assert!(font.get(0x1F600).is_none());
     }
 
-    // Tab falls back to space character
+    // Tab (code 9) falls back to space (code 32)
     #[test]
     fn test_font_get_tab_fallback() {
         let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
         let font = FIGfont::from_path(&path).unwrap();
-        let space = font.get(' ');
-        let tab = font.get('\t');
+        let space = font.get(32i32);
+        let tab = font.get(9i32);
         assert!(space.is_some());
         assert!(tab.is_some());
         assert_eq!(space.unwrap().get(), tab.unwrap().get());
@@ -439,8 +435,8 @@ mod tests {
         let font = FIGfont::from_path(&path).unwrap();
         assert_eq!(font.height, 6);
         assert_eq!(font.hardblank, '$');
-        assert!(font.get('A').is_some());
-        assert!(font.get('\u{00C4}').is_some());
+        assert!(font.get('A' as i32).is_some());
+        assert!(font.get(0x00C4).is_some());
     }
 
     // Loaded font exposes correct height, hardblank, and layout values
@@ -462,22 +458,19 @@ mod tests {
         assert_eq!(font.hardblank, '\u{7f}');
         assert_eq!(font.layout, 0);
 
-        let ch = 'A';
-        assert_eq!(font.get(ch).unwrap().get(), &[
+        assert_eq!(font.get('A' as i32).unwrap().get(), &[
             "\u{250f}\u{2501}\u{2503}".to_string(),
             "\u{250f}\u{2501}\u{2503}".to_string(),
             "\u{251b} \u{251b}".to_string(),
         ]);
 
-        let ch = 'H';
-        assert_eq!(font.get(ch).unwrap().get(), &[
+        assert_eq!(font.get('H' as i32).unwrap().get(), &[
             "\u{2503} \u{2503}".to_string(),
             "\u{250f}\u{2501}\u{2503}".to_string(),
             "\u{251b} \u{251b}".to_string(),
         ]);
 
-        let ch = 'I';
-        assert_eq!(font.get(ch).unwrap().get(), &[
+        assert_eq!(font.get('I' as i32).unwrap().get(), &[
             "\u{251b}".to_string(),
             "\u{2503}".to_string(),
             "\u{251b}".to_string(),

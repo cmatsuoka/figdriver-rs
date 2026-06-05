@@ -1,6 +1,6 @@
 use std::cmp::min;
 pub use crate::figfont::{FIGchar, FIGfont};
-use crate::flc::Control;
+use crate::control::Control;
 use crate::SMUSH_ENABLE;
 use unicode_width::UnicodeWidthChar;
 
@@ -241,15 +241,36 @@ impl<'a> Smusher<'a> {
     /// and skipped.
     pub fn push(&mut self, ch: char) -> bool {
         let code = ch as i32;
+        self.push_code(code)
+    }
+
+    /// Add character codes to the output buffer, applying the smushing rules specified in the
+    /// font layout. Each code is transformed by the control pipeline (if set) before font lookup.
+    ///
+    /// Returns the subset of codes that were actually rendered.
+    pub fn push_codes(&mut self, codes: &[i32]) -> Vec<i32> {
+        let mut rendered = Vec::with_capacity(codes.len());
+        for &code in codes {
+            if self.push_code(code) {
+                rendered.push(code);
+            }
+        }
+        rendered
+    }
+
+    /// Add a single character code to the output buffer, applying the smushing rules specified
+    /// in the font layout. The code is transformed by the control pipeline (if set) before font
+    /// lookup.
+    ///
+    /// Returns `true` if the character was rendered, `false` if it was missing from the font
+    /// and skipped.
+    pub(crate) fn push_code(&mut self, code: i32) -> bool {
         let code = if let Some(ctrl) = self.control {
             ctrl.apply(code)
         } else {
             code
         };
-        // Convert mapped code to char. Invalid codes (negative, > 0x10FFFF) fall back
-        // to the original character, since they have no valid Unicode mapping.
-        let ch = char::from_u32(code as u32).unwrap_or(ch);
-        if let Some(fc) = self.font.get(ch) {
+        if let Some(fc) = self.font.get(code) {
             self.output = smush(&self.output, fc, self.font.hardblank, self.full_width, self.mode, self.right2left);
             true
         } else {
@@ -426,6 +447,35 @@ mod tests {
         sm.push_str("AB");
         let output = sm.get();
         assert!(!output[0].is_empty());
+    }
+
+    // push_codes() renders i32 codes directly, supporting codes outside char range
+    #[test]
+    fn test_smusher_push_codes() {
+        let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
+        let mut sm = Smusher::new(&font);
+        let rendered = sm.push_codes(&[65, 66, 67]);
+        assert_eq!(rendered, vec![65, 66, 67]);
+        assert!(!sm.is_empty());
+    }
+
+    // push_codes() skips codes not defined in the font
+    #[test]
+    fn test_smusher_push_codes_skips_missing() {
+        let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
+        let mut sm = Smusher::new(&font);
+        let rendered = sm.push_codes(&[65, 0x1F600, 66]);
+        assert_eq!(rendered, vec![65, 66]);
+    }
+
+    // push_codes() with empty slice is a no-op
+    #[test]
+    fn test_smusher_push_codes_empty() {
+        let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
+        let mut sm = Smusher::new(&font);
+        let rendered = sm.push_codes(&[]);
+        assert!(rendered.is_empty());
+        assert!(sm.is_empty());
     }
 
     // trim() truncates the rendered output to the given width

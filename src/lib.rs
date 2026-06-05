@@ -7,12 +7,12 @@ use std::path::PathBuf;
 pub use self::figfont::*;
 pub use self::wrapper::{Align, Wrapper};
 pub use self::smusher::{LayoutMode, Smusher, SmusherBuilder};
-pub use self::flc::{Control, Flc, InputEncoding};
+pub use self::control::{Control, EncodingDecoder, Flc, InputEncoding};
 
+mod control;
 mod figfont;
 mod wrapper;
 mod smusher;
-mod flc;
 mod zip;
 
 #[derive(Debug)]
