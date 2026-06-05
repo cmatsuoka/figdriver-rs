@@ -9,7 +9,7 @@
 
 # Figdriver-rs: A FIGfont renderer written in Rust
 
-[![CI](https://github.com/cmatsuoka/figdriver-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/cmatsuoka/figdriver-rs/actions/workflows/ci.yaml)
+[![CI](https://github.com/cmatsuoka/figdriver-rs/actions/workflows/ci.yaml/badge.svg)](https://github.com/cmatsuoka/figdriver-rs/actions/workflows/ci.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 FIGdrivers render text as large ASCII-art banners using FIGfont (`.flf`) files. This

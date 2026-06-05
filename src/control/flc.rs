@@ -4,74 +4,34 @@ use std::path::Path;
 use crate::Error;
 use crate::zip::{is_zip, decompress_zip};
 
-/// A single transformation command within a stage.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-enum FlcCommand {
-    /// Maps a single input code to an output code.
-    Single { input: i32, output: i32 },
-    /// Range transformation: maps input_start..=input_end to output_start..=output_end.
-    /// output_end is parsed from the FLC file for range-size validation but not needed
-    /// for the actual transformation (both ranges must be the same size).
-    Range { input_start: i32, input_end: i32, output_start: i32, output_end: i32 },
-}
-
-/// One transformation stage, consisting of a sequence of commands.
-/// Within a stage, only the first matching command is applied.
-#[derive(Debug, Clone)]
-struct TransformationStage {
-    /// The list of transformation commands in this stage.
-    commands: Vec<FlcCommand>,
-}
-
 /// Input encoding mode for multi-byte character processing.
-/// Determines how the FIGdriver interprets multi-byte character input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputEncoding {
-    /// Default encoding (no special handling).
     Default,
-    /// HZ encoding for simplified Chinese text.
     HZ,
-    /// Shift-JIS encoding for Japanese text.
     ShiftJIS,
-    /// Generic double-byte character set encoding.
     Dbcs,
-    /// UTF-8 encoding for Unicode text.
     UTF8,
 }
 
-/// Size of an ISO 2022 character set.
-/// Defines the number of assignable characters in each row/column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Iso2022CharSetSize {
-    /// 94-character set (standard ISO 2022 size).
     Bits94,
-    /// 96-character set (extended ISO 2022 size).
     Bits96,
-    /// 94x94 two-byte character set.
     Bits94x94,
 }
 
-/// An ISO 2022 character set assignment.
-/// Associates a G-register with a character set size and designating byte.
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 struct Iso2022CharSet {
-    /// The size of the character set (94, 96, or 94x94).
     size: Iso2022CharSetSize,
-    /// The designating byte used to identify the character set.
     designating_byte: i32,
 }
 
-/// Accumulated ISO 2022 settings from "g" commands in a control file.
-/// Manages G-register assignments and half-character mapping.
 #[derive(Debug, Clone)]
 struct Iso2022Settings {
-    /// G0-G3 character set register assignments.
     g_sets: [Option<Iso2022CharSet>; 4],
-    /// G-register used for the left half of two-byte characters.
     left_half: i32,
-    /// G-register used for the right half of two-byte characters.
     right_half: i32,
 }
 
@@ -90,32 +50,35 @@ impl Default for Iso2022Settings {
     }
 }
 
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+enum FlcCommand {
+    Single { input: i32, output: i32 },
+    Range { input_start: i32, input_end: i32, output_start: i32, output_end: i32 },
+}
+
+#[derive(Debug, Clone)]
+struct TransformationStage {
+    commands: Vec<FlcCommand>,
+}
+
 /// A parsed FIGfont control file (.flc).
-/// Contains transformation stages, encoding settings, and ISO 2022 configuration.
 #[derive(Debug, Clone)]
 pub struct Flc {
-    /// Sequential transformation stages applied in order.
     stages: Vec<TransformationStage>,
-    /// The input encoding specified by the control file.
     encoding: InputEncoding,
-    /// ISO 2022 settings accumulated from "g" commands.
     #[allow(dead_code)]
     iso2022: Iso2022Settings,
 }
 
 /// Pipeline for chaining multiple control files together.
-/// Applies each control file's transformations in sequence.
 #[derive(Debug, Clone)]
 pub struct Control {
-    /// Ordered list of control files to apply.
     files: Vec<Flc>,
-    /// Effective encoding from the last control file in the pipeline.
     encoding: InputEncoding,
 }
 
 impl Flc {
-    /// Parse a control file from the given path.
-    /// Automatically detects and decompresses ZIP-compressed files.
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let path = path.as_ref();
 
@@ -129,7 +92,6 @@ impl Flc {
         }
     }
 
-    /// Parse control file data from a line iterator.
     fn load_from_reader<L: IntoIterator<Item = std::io::Result<String>>>(lines: L) -> Result<Self, Error> {
         let mut stages: Vec<TransformationStage> = vec![TransformationStage { commands: Vec::new() }];
         let mut encoding = InputEncoding::Default;
@@ -190,7 +152,6 @@ impl Flc {
         Ok(Flc { stages, encoding, iso2022 })
     }
 
-    /// Apply all transformation stages to a character code.
     pub fn apply(&self, code: i32) -> i32 {
         let mut result = code;
         for stage in &self.stages {
@@ -201,12 +162,10 @@ impl Flc {
         result
     }
 
-    /// Get the configured input encoding.
     pub fn encoding(&self) -> InputEncoding {
         self.encoding
     }
 
-    /// Get the accumulated ISO 2022 settings.
     #[allow(dead_code)]
     fn iso2022_settings(&self) -> &Iso2022Settings {
         &self.iso2022
@@ -235,7 +194,6 @@ impl TransformationStage {
 }
 
 impl Control {
-    /// Create a pipeline from multiple control file paths.
     pub fn from_paths<P: AsRef<Path>, I: IntoIterator<Item = P>>(paths: I) -> Result<Self, Error> {
         let mut files = Vec::new();
         let mut encoding = InputEncoding::Default;
@@ -249,7 +207,6 @@ impl Control {
         Ok(Control { files, encoding })
     }
 
-    /// Apply all transformations across all files in order.
     pub fn apply(&self, code: i32) -> i32 {
         let mut result = code;
         for flc in &self.files {
@@ -258,7 +215,6 @@ impl Control {
         result
     }
 
-    /// Get the effective encoding (last encoding command wins).
     pub fn encoding(&self) -> InputEncoding {
         self.encoding
     }
@@ -277,7 +233,6 @@ fn parse_t_command(line: &str) -> Result<Option<FlcCommand>, Error> {
     let in_part: &str = &tokens[1];
     let out_part: &str = &tokens[2];
 
-    // Check for range syntax
     if let Some(pos) = find_range_separator(in_part) {
         let (in_start, _) = in_part.split_at(pos);
         let in_end = &in_part[pos+1..];
@@ -329,12 +284,10 @@ fn tokenize_flc_line(line: &str) -> Vec<String> {
                 current.push(chars.next().unwrap());
                 if chars.peek() == Some(&'x') || chars.peek() == Some(&'X') {
                     current.push(chars.next().unwrap());
-                    // Consume hex digits, but stop if we hit another \\0x
                     while let Some(&hex_ch) = chars.peek() {
                         if hex_ch.is_ascii_hexdigit() {
                             current.push(chars.next().unwrap());
                         } else if hex_ch == '\\' {
-                            // Check if next is \\0x - if so, stop here to concatenate later
                             break;
                         } else {
                             break;
@@ -342,7 +295,6 @@ fn tokenize_flc_line(line: &str) -> Vec<String> {
                     }
                 }
             } else {
-                // Other escape sequences - consume until next whitespace or end
                 while let Some(&next) = chars.peek() {
                     if next.is_whitespace() {
                         break;
@@ -370,8 +322,6 @@ fn parse_number_command(line: &str) -> Result<Option<FlcCommand>, Error> {
     let in_part = &tokens[0];
     let out_part = &tokens[1];
 
-    // Check for range syntax (code1-code2). The - is a range separator if it's
-    // not the first character (which would be a negative sign).
     if let Some(pos) = find_range_separator(in_part) {
         let (in_start, _) = in_part.split_at(pos);
         let in_end = &in_part[pos+1..];
@@ -406,42 +356,35 @@ fn parse_number_command(line: &str) -> Result<Option<FlcCommand>, Error> {
 }
 
 /// Find the position of the range separator '-' in a character code expression.
-/// Returns None if there's no range separator.
 fn find_range_separator(s: &str) -> Option<usize> {
     let chars: Vec<char> = s.chars().collect();
     let mut i = 0;
     while i < chars.len() {
         if chars[i] == '\\' {
-            // Skip escape sequence
             i += 1;
             if i < chars.len() {
                 match chars[i] {
                     '0' if i + 1 < chars.len() && (chars[i+1] == 'x' || chars[i+1] == 'X') => {
                         i += 2;
-                        // Skip hex digits (at least 2)
                         while i < chars.len() && chars[i].is_ascii_hexdigit() {
                             i += 1;
                         }
                     }
                     '-' => {
-                        // Negative escape, skip digits
                         i += 1;
                         while i < chars.len() && chars[i].is_ascii_digit() {
                             i += 1;
                         }
                     }
                     'a'..='z' | 'A'..='Z' => {
-                        // Single char escape (like \n, \t, etc.), skip 1 char
                         i += 1;
                     }
                     '0'..='7' => {
-                        // Octal/decimal numeric escape, skip digits
                         while i < chars.len() && chars[i].is_ascii_digit() {
                             i += 1;
                         }
                     }
                     _ => {
-                        // Unknown escape, skip until next special char
                         while i < chars.len() && !chars[i].is_whitespace() && chars[i] != '-' {
                             i += 1;
                         }
@@ -449,7 +392,6 @@ fn find_range_separator(s: &str) -> Option<usize> {
                 }
             }
         } else if chars[i] == '-' {
-            // This is a range separator (not a negative sign since it's not the first char)
             if i > 0 {
                 return Some(i);
             }
@@ -476,8 +418,6 @@ fn parse_char_code(s: &str) -> Result<i32, Error> {
 }
 
 /// Parse an escape sequence after the backslash.
-/// Per spec: \65 is decimal 65, \0x100 is hex 256.
-/// Handles concatenated \\0xNN escapes (e.g., \0x01\0x01 = 0x0101).
 fn parse_escape_sequence(s: &str) -> Result<i32, Error> {
     if s.is_empty() {
         return Ok(32);
@@ -486,7 +426,7 @@ fn parse_escape_sequence(s: &str) -> Result<i32, Error> {
     let first = s.as_bytes()[0];
 
     match first as char {
-    ' ' => Ok(32),
+        ' ' => Ok(32),
         'a' => Ok(7),
         'b' => Ok(8),
         'e' => Ok(27),
@@ -513,7 +453,6 @@ fn parse_escape_sequence(s: &str) -> Result<i32, Error> {
         }
         '0' => {
             if s.len() > 1 && (s.as_bytes()[1] == b'x' || s.as_bytes()[1] == b'X') {
-                // Handle concatenated \\0xNN escapes
                 parse_concatenated_hex(s)
             } else if s.len() > 1 {
                 let val = i32::from_str_radix(s, 8).map_err(|_| Error::ControlFormat("invalid octal escape"))?;
@@ -528,7 +467,6 @@ fn parse_escape_sequence(s: &str) -> Result<i32, Error> {
                 let val = i32::from_str_radix(hex_str, 16).map_err(|_| Error::ControlFormat("invalid hex escape"))?;
                 Ok(val)
             } else {
-                // Plain numbers in escape sequences are decimal (per spec: \65 = 65)
                 let val: i32 = s.parse().map_err(|_| Error::ControlFormat("invalid number"))?;
                 Ok(val)
             }
@@ -536,19 +474,15 @@ fn parse_escape_sequence(s: &str) -> Result<i32, Error> {
     }
 }
 
-/// Parse concatenated hex escapes (e.g., "0x01\\0x01" -> 0x0101).
-/// For single escape (e.g., "0x03b1"), parses as one value (0x03B1 = 945).
+/// Parse concatenated hex escapes.
 fn parse_concatenated_hex(s: &str) -> Result<i32, Error> {
-    // Count how many \\0x prefixes are in the string
     let num_prefixes = s.matches("0x").count() + s.matches("0X").count();
 
     if num_prefixes == 1 {
-        // Single escape, parse all hex digits as one value
         let hex_str = &s[2..];
         let val = i32::from_str_radix(hex_str, 16).map_err(|_| Error::ControlFormat("invalid hex escape"))?;
         Ok(val)
     } else {
-        // Multiple escapes, concatenate 2 hex digits per \\0x prefix
         let mut result: i32 = 0;
         let mut remaining = s;
 
@@ -576,7 +510,7 @@ fn parse_concatenated_hex(s: &str) -> Result<i32, Error> {
     }
 }
 
-/// Parse a numeric character code (for "number number" format or escape sequences).
+/// Parse a numeric character code.
 fn parse_numeric_code(s: &str) -> Result<i32, Error> {
     let s = s.trim();
 
@@ -661,7 +595,7 @@ fn parse_g_command(line: &str, iso2022: &mut Iso2022Settings) -> Result<(), Erro
     Ok(())
 }
 
-/// Parse the size part of a g command (94, 96, 94x94, or a charset designator letter).
+/// Parse the size part of a g command.
 fn parse_g_size(s: &str) -> Result<Iso2022CharSetSize, Error> {
     match s {
         "94" => Ok(Iso2022CharSetSize::Bits94),
@@ -689,7 +623,6 @@ mod tests {
         file
     }
 
-    // Parse single character mapping with literal chars
     #[test]
     fn test_parse_single_mapping_literal() {
         let file = create_flc("t A B\n");
@@ -699,7 +632,6 @@ mod tests {
         assert_eq!(flc.apply(67), 67);
     }
 
-    // Parse range mapping
     #[test]
     fn test_parse_range_mapping() {
         let file = create_flc("t a-z A-Z\n");
@@ -710,7 +642,6 @@ mod tests {
         assert_eq!(flc.apply('A' as i32), 'A' as i32);
     }
 
-    // Parse number-number form (mapping table format)
     #[test]
     fn test_parse_number_command() {
         let file = create_flc("65 66\n");
@@ -719,7 +650,6 @@ mod tests {
         assert_eq!(flc.apply(66), 66);
     }
 
-    // Parse hex number-number form
     #[test]
     fn test_parse_hex_number_command() {
         let file = create_flc("0x41 0x42\n");
@@ -727,7 +657,6 @@ mod tests {
         assert_eq!(flc.apply(0x41), 0x42);
     }
 
-    // Parse escape sequences in "t" commands
     #[test]
     fn test_parse_escape_decimal() {
         let file = create_flc("t \\65 B\n");
@@ -735,7 +664,6 @@ mod tests {
         assert_eq!(flc.apply(65), 'B' as i32);
     }
 
-    // Parse hex escape sequences
     #[test]
     fn test_parse_escape_hex() {
         let file = create_flc("t A \\0x42\n");
@@ -743,7 +671,6 @@ mod tests {
         assert_eq!(flc.apply('A' as i32), 0x42);
     }
 
-    // Parse escape sequences: bell, backspace, newline, tab
     #[test]
     fn test_parse_escape_special() {
         let file = create_flc("t \\a B\n");
@@ -763,7 +690,6 @@ mod tests {
         assert_eq!(flc.apply(9), 'B' as i32);
     }
 
-    // Parse escape for backslash itself
     #[test]
     fn test_parse_escape_backslash() {
         let file = create_flc("t \\\\ B\n");
@@ -771,7 +697,6 @@ mod tests {
         assert_eq!(flc.apply(92), 'B' as i32);
     }
 
-    // Parse escape for space
     #[test]
     fn test_parse_escape_space() {
         let file = create_flc("t \\ B\n");
@@ -779,7 +704,6 @@ mod tests {
         assert_eq!(flc.apply(32), 'B' as i32);
     }
 
-    // Parse "f" command creates new transformation stage
     #[test]
     fn test_parse_freeze_command() {
         let file = create_flc("t a-z A-Z\nf\nt Q ~\n");
@@ -789,7 +713,6 @@ mod tests {
         assert_eq!(flc.apply('Q' as i32), '~' as i32);
     }
 
-    // Parse "h" command sets HZ encoding
     #[test]
     fn test_parse_hz_encoding() {
         let file = create_flc("h\n");
@@ -797,7 +720,6 @@ mod tests {
         assert_eq!(flc.encoding(), InputEncoding::HZ);
     }
 
-    // Parse "j" command sets Shift-JIS encoding
     #[test]
     fn test_parse_shiftjis_encoding() {
         let file = create_flc("j\n");
@@ -805,7 +727,6 @@ mod tests {
         assert_eq!(flc.encoding(), InputEncoding::ShiftJIS);
     }
 
-    // Parse "b" command sets Dbcs encoding
     #[test]
     fn test_parse_dbcs_encoding() {
         let file = create_flc("b\n");
@@ -813,7 +734,6 @@ mod tests {
         assert_eq!(flc.encoding(), InputEncoding::Dbcs);
     }
 
-    // Parse "u" command sets UTF-8 encoding
     #[test]
     fn test_parse_utf8_encoding() {
         let file = create_flc("u\n");
@@ -821,7 +741,6 @@ mod tests {
         assert_eq!(flc.encoding(), InputEncoding::UTF8);
     }
 
-    // Parse "g" commands for ISO 2022
     #[test]
     fn test_parse_iso2022_g_command() {
         let file = create_flc("g 0 94 B\ng 1 96 A\ng L 0\ng R 1\n");
@@ -831,7 +750,6 @@ mod tests {
         assert_eq!(settings.right_half, 1);
     }
 
-    // Skip comment lines and blank lines
     #[test]
     fn test_skip_comments_and_blanks() {
         let file = create_flc("# This is a comment\n\nt A B\n\n");
@@ -839,7 +757,6 @@ mod tests {
         assert_eq!(flc.apply('A' as i32), 'B' as i32);
     }
 
-    // Parse optional "flc2a" signature
     #[test]
     fn test_parse_signature() {
         let file = create_flc("flc2a\nt A B\n");
@@ -847,7 +764,6 @@ mod tests {
         assert_eq!(flc.apply('A' as i32), 'B' as i32);
     }
 
-    // Without signature still works
     #[test]
     fn test_no_signature() {
         let file = create_flc("t A B\n");
@@ -855,7 +771,6 @@ mod tests {
         assert_eq!(flc.apply('A' as i32), 'B' as i32);
     }
 
-    // First-match rule within a stage
     #[test]
     fn test_first_match_rule() {
         let file = create_flc("t A B\nt A C\n");
@@ -863,7 +778,6 @@ mod tests {
         assert_eq!(flc.apply('A' as i32), 'B' as i32);
     }
 
-    // Swap pattern works correctly with two commands in same stage
     #[test]
     fn test_swap_pattern() {
         let file = create_flc("t A B\nt B A\n");
@@ -872,7 +786,6 @@ mod tests {
         assert_eq!(flc.apply('B' as i32), 'A' as i32);
     }
 
-    // Empty control file produces single empty stage
     #[test]
     fn test_empty_control_file() {
         let file = create_flc("");
@@ -880,7 +793,6 @@ mod tests {
         assert_eq!(flc.apply(65), 65);
     }
 
-    // Only "flc2a" signature
     #[test]
     fn test_signature_only() {
         let file = create_flc("flc2a\n");
@@ -888,7 +800,6 @@ mod tests {
         assert_eq!(flc.apply(65), 65);
     }
 
-    // Range size mismatch produces error
     #[test]
     fn test_range_mismatch_error() {
         let file = create_flc("t A-C a-z\n");
@@ -896,7 +807,6 @@ mod tests {
         assert!(matches!(result, Err(Error::ControlRangeMismatch)));
     }
 
-    // Encoding commands are mutually exclusive (last wins)
     #[test]
     fn test_encoding_last_wins() {
         let file = create_flc("h\nu\n");
@@ -904,7 +814,6 @@ mod tests {
         assert_eq!(flc.encoding(), InputEncoding::UTF8);
     }
 
-    // Control chains multiple files
     #[test]
     fn test_pipeline_chains() {
         let file1 = create_flc("t a-z A-Z\n");
@@ -915,7 +824,6 @@ mod tests {
         assert_eq!(pipeline.apply('b' as i32), 'B' as i32);
     }
 
-    // Encoding is last file's encoding
     #[test]
     fn test_pipeline_encoding() {
         let file1 = create_flc("h\n");
@@ -925,7 +833,6 @@ mod tests {
         assert_eq!(pipeline.encoding(), InputEncoding::UTF8);
     }
 
-    // Test negative number-number form
     #[test]
     fn test_negative_number_command() {
         let file = create_flc("-252 -255\n");
@@ -933,7 +840,6 @@ mod tests {
         assert_eq!(flc.apply(-252), -255);
     }
 
-    // Parse octal escape sequence (leading 0 indicates octal)
     #[test]
     fn test_parse_escape_octal() {
         let file = create_flc("t \\0101 B\n");
@@ -941,7 +847,6 @@ mod tests {
         assert_eq!(flc.apply(65), 'B' as i32);
     }
 
-    // Escape sequence \e for ESC character
     #[test]
     fn test_parse_escape_esc() {
         let file = create_flc("t \\e B\n");
@@ -949,7 +854,6 @@ mod tests {
         assert_eq!(flc.apply(27), 'B' as i32);
     }
 
-    // Test Unicode character codes in number-number form
     #[test]
     fn test_unicode_codes() {
         let file = create_flc("0x3B1 0x391\n");
@@ -957,7 +861,6 @@ mod tests {
         assert_eq!(flc.apply(0x3B1), 0x391);
     }
 
-    // Test "f" command with no surrounding "t" commands creates empty stage
     #[test]
     fn test_freeze_no_commands() {
         let file = create_flc("t A B\nf\nt C D\n");
@@ -967,7 +870,6 @@ mod tests {
         assert_eq!(flc.apply('B' as i32), 'B' as i32);
     }
 
-    // Test from real upper.flc file
     #[test]
     fn test_upper_flc() {
         let path = format!("{}/fonts/upper.flc", env!("CARGO_MANIFEST_DIR"));
@@ -976,7 +878,6 @@ mod tests {
         assert_eq!(flc.apply('z' as i32), 'Z' as i32);
     }
 
-    // Test from real frango.flc file
     #[test]
     fn test_frango_flc() {
         let path = format!("{}/fonts/frango.flc", env!("CARGO_MANIFEST_DIR"));
@@ -985,7 +886,6 @@ mod tests {
         assert_eq!(flc.apply('A' as i32), 0x0391);
     }
 
-    // Test from real utf8.flc file
     #[test]
     fn test_utf8_flc() {
         let path = format!("{}/fonts/utf8.flc", env!("CARGO_MANIFEST_DIR"));
@@ -993,7 +893,6 @@ mod tests {
         assert_eq!(flc.encoding(), InputEncoding::UTF8);
     }
 
-    // Test from real hz.flc file
     #[test]
     fn test_hz_flc() {
         let path = format!("{}/fonts/hz.flc", env!("CARGO_MANIFEST_DIR"));
@@ -1001,7 +900,6 @@ mod tests {
         assert_eq!(flc.encoding(), InputEncoding::HZ);
     }
 
-    // Test from real 646-de.flc file (number-number format)
     #[test]
     fn test_646_de_flc() {
         let path = format!("{}/fonts/646-de.flc", env!("CARGO_MANIFEST_DIR"));
@@ -1010,7 +908,6 @@ mod tests {
         assert_eq!(flc.apply(0x7B), 0xE4);
     }
 
-    // Test from real jis0201.flc file (with g commands)
     #[test]
     fn test_jis0201_flc() {
         let path = format!("{}/fonts/jis0201.flc", env!("CARGO_MANIFEST_DIR"));
@@ -1018,7 +915,6 @@ mod tests {
         assert_eq!(flc.apply(0x4A005C), 0xA5);
     }
 
-    // Loading a ZIP-compressed FLC produces the same result as the uncompressed file
     #[test]
     fn test_flc_load_zip() {
         let path = format!("{}/tests/fixtures/upper.flc.zip", env!("CARGO_MANIFEST_DIR"));

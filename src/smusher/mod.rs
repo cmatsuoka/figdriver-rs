@@ -1,6 +1,6 @@
 use std::cmp::min;
 pub use crate::figfont::{FIGchar, FIGfont};
-use crate::flc::Control;
+use crate::control::Control;
 use crate::SMUSH_ENABLE;
 use unicode_width::UnicodeWidthChar;
 
