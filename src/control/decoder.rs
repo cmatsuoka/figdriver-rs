@@ -161,7 +161,8 @@ impl EncodingDecoder<'_> {
             if self.bytes[self.pos] == b'~' {
                 self.pos += 1;
                 if self.pos >= self.bytes.len() {
-                    return Some('~' as i32);
+                    // Lone tilde at end of input: consume silently
+                    continue;
                 }
 
                 match self.bytes[self.pos] {
@@ -180,8 +181,10 @@ impl EncodingDecoder<'_> {
                         return Some('~' as i32);
                     }
                     _ => {
+                        // All other ~X sequences are removed from input
+                        self.pos += 1;
                         self.hz_two_byte = false;
-                        return Some('~' as i32);
+                        continue;
                     }
                 }
             }
@@ -474,17 +477,14 @@ mod tests {
 
     #[test]
     fn hz_stray_tilde_x() {
-        // ~X (where X is not {, }, or ~) yields '~', then X is emitted as next byte, then A
-        assert_eq!(
-            collect_hz(&[b'~', b'X', b'A']),
-            vec![b'~' as i32, b'X' as i32, 65]
-        );
+        // ~X (where X is not {, }, or ~) is removed from input per spec
+        assert_eq!(collect_hz(&[b'~', b'X', b'A']), vec![65]);
     }
 
     #[test]
     fn hz_trailing_tilde_at_end() {
-        // Lone ~ at end of input
-        assert_eq!(collect_hz(&[b'~']), vec![b'~' as i32]);
+        // Lone ~ at end of input: consumed silently
+        assert_eq!(collect_hz(&[b'~']), vec![]);
     }
 
     #[test]
@@ -515,11 +515,8 @@ mod tests {
 
     #[test]
     fn hz_stray_tilde_resets_mode() {
-        // ~{ enters two-byte, ~X yields '~' and resets to one-byte, then X is emitted
-        assert_eq!(
-            collect_hz(&[b'~', b'{', b'~', b'X']),
-            vec![b'~' as i32, b'X' as i32]
-        );
+        // ~{ enters two-byte, ~X is removed from input (consumes both bytes silently)
+        assert_eq!(collect_hz(&[b'~', b'{', b'~', b'X']), vec![]);
     }
 
     /* Latin1 tests */
