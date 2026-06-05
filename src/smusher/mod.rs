@@ -246,10 +246,7 @@ impl<'a> Smusher<'a> {
         } else {
             code
         };
-        // Convert mapped code to char. Invalid codes (negative, > 0x10FFFF) fall back
-        // to the original character, since they have no valid Unicode mapping.
-        let ch = char::from_u32(code as u32).unwrap_or(ch);
-        if let Some(fc) = self.font.get(ch) {
+        if let Some(fc) = self.font.get(code) {
             self.output = smush(&self.output, fc, self.font.hardblank, self.full_width, self.mode, self.right2left);
             true
         } else {
