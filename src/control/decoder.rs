@@ -513,7 +513,7 @@ mod tests {
         );
     }
 
-     #[test]
+    #[test]
     fn hz_stray_tilde_resets_mode() {
         // ~{ enters two-byte, ~X yields '~' and resets to one-byte, then X is emitted
         assert_eq!(
