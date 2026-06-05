@@ -9,7 +9,7 @@
 
 # Figdriver-rs: A FIGfont renderer written in Rust
 
-[![CI](https://github.com/cmatsuoka/figdriver-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/cmatsuoka/figdriver-rs/actions/workflows/ci.yml)
+[![CI](https://github.com/cmatsuoka/figdriver-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/cmatsuoka/figdriver-rs/actions/workflows/ci.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 FIGdrivers render text as large ASCII-art banners using FIGfont (`.flf`) files. This
@@ -108,8 +108,8 @@ If no text is provided, input is read from stdin.
 
 | Flag                        | Description                                        |
 | ---                         | ---                                                |
-| `-f, --font <name>`           | Font to use (default: `standard.flf`)                |
-| `-d, --dir <dir>`             | Font directory (default: `/usr/share/figlet`)        |
+| `-f, --font <name>`           | Font to use (default: standard.flf)                |
+| `-d, --dir <dir>`             | Font directory (default: /usr/share/figlet)        |
 | `-C, --control <file>`        | Control file to apply (can be repeated)            |
 | `-w, --width <cols>`          | Output width for wrapping (default: 80)            |
 | `-t, --terminal-width`        | Use terminal width for output width                |

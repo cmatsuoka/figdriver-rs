@@ -7,7 +7,7 @@ use crate::zip::{is_zip, decompress_zip};
 /// A single transformation command within a stage.
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub enum FlcCommand {
+enum FlcCommand {
     /// Maps a single input code to an output code.
     Single { input: i32, output: i32 },
     /// Range transformation: maps input_start..=input_end to output_start..=output_end.
@@ -19,7 +19,7 @@ pub enum FlcCommand {
 /// One transformation stage, consisting of a sequence of commands.
 /// Within a stage, only the first matching command is applied.
 #[derive(Debug, Clone)]
-pub struct TransformationStage {
+struct TransformationStage {
     /// The list of transformation commands in this stage.
     commands: Vec<FlcCommand>,
 }
@@ -43,7 +43,7 @@ pub enum InputEncoding {
 /// Size of an ISO 2022 character set.
 /// Defines the number of assignable characters in each row/column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Iso2022CharSetSize {
+enum Iso2022CharSetSize {
     /// 94-character set (standard ISO 2022 size).
     Bits94,
     /// 96-character set (extended ISO 2022 size).
@@ -56,7 +56,7 @@ pub enum Iso2022CharSetSize {
 /// Associates a G-register with a character set size and designating byte.
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub struct Iso2022CharSet {
+struct Iso2022CharSet {
     /// The size of the character set (94, 96, or 94x94).
     size: Iso2022CharSetSize,
     /// The designating byte used to identify the character set.
@@ -66,7 +66,7 @@ pub struct Iso2022CharSet {
 /// Accumulated ISO 2022 settings from "g" commands in a control file.
 /// Manages G-register assignments and half-character mapping.
 #[derive(Debug, Clone)]
-pub struct Iso2022Settings {
+struct Iso2022Settings {
     /// G0-G3 character set register assignments.
     g_sets: [Option<Iso2022CharSet>; 4],
     /// G-register used for the left half of two-byte characters.
@@ -99,6 +99,7 @@ pub struct Flc {
     /// The input encoding specified by the control file.
     encoding: InputEncoding,
     /// ISO 2022 settings accumulated from "g" commands.
+    #[allow(dead_code)]
     iso2022: Iso2022Settings,
 }
 
@@ -206,7 +207,8 @@ impl Flc {
     }
 
     /// Get the accumulated ISO 2022 settings.
-    pub fn iso2022_settings(&self) -> &Iso2022Settings {
+    #[allow(dead_code)]
+    fn iso2022_settings(&self) -> &Iso2022Settings {
         &self.iso2022
     }
 }
