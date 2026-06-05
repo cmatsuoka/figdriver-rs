@@ -18,8 +18,8 @@ pub enum Align {
 #[derive(Debug)]
 pub struct Wrapper<'a> {
     sm            : Smusher<'a>,    // the FIGcharacter smusher
-    buffer        : String,         // buffer to keep our input text
-    pending_space : Option<String>, // accumulated whitespace to commit with next word
+    buffer        : Vec<i32>,       // buffer to keep our input codes
+    pending_space : Option<Vec<i32>>, // accumulated whitespace codes to commit with next word
     width     : usize,              // terminal width
     align     : Align,              // text alignment
 }
@@ -44,7 +44,7 @@ impl<'a> Wrapper<'a> {
         Wrapper{
             sm,
             width,
-            buffer        : String::new(),
+            buffer        : Vec::new(),
             align,
             pending_space : None,
         }
@@ -90,7 +90,7 @@ impl<'a> Wrapper<'a> {
     pub fn get(&mut self) -> Vec<String> {
         // Commit pending whitespace before returning output
         if let Some(sp) = self.pending_space.take() {
-            self.push_str(&sp).ok();
+            self.push_codes(&sp).ok();
         }
 
         if self.len() > self.width {
@@ -129,6 +129,56 @@ impl<'a> Wrapper<'a> {
         self.sm.is_empty()
     }
 
+    /// Add a character code to the output buffer.
+    ///
+    /// # Errors
+    ///
+    /// If adding the code results in a line wider than the maximum number of columns,
+    /// the code is not added to the output buffer and a LineFull error is returned.
+    pub fn push_code(&mut self, code: i32) -> Result<(), Error> {
+        let rendered = self.sm.push_code(code);
+
+        if self.sm.len() > self.width {
+            self.sm.clear();
+            for &c in &self.buffer {
+                self.sm.push_code(c);
+            }
+            return Err(Error::LineFull)
+        }
+
+        if rendered {
+            self.buffer.push(code);
+        }
+        Ok(())
+    }
+
+    /// Add character codes to the output buffer.
+    ///
+    /// # Errors
+    ///
+    /// If adding the codes results in a line wider than the maximum number of columns,
+    /// the codes are not added to the output buffer and a LineFull error is returned.
+    pub fn push_codes(&mut self, codes: &[i32]) -> Result<(), Error> {
+        let buf_len = self.buffer.len();
+        for &code in codes {
+            let rendered = self.sm.push_code(code);
+            if rendered {
+                self.buffer.push(code);
+            }
+        }
+
+        if self.sm.len() > self.width {
+            self.sm.clear();
+            self.buffer.truncate(buf_len);
+            for &c in &self.buffer {
+                self.sm.push_code(c);
+            }
+            return Err(Error::LineFull)
+        }
+
+        Ok(())
+    }
+
     /// Add a string to the output buffer.
     ///
     /// # Errors
@@ -136,16 +186,7 @@ impl<'a> Wrapper<'a> {
     /// If adding the string results in a line wider than the maximum number of columns,
     /// the string is not added to the output buffer and a LineFull error is returned.
     pub fn push_str(&mut self, s: &str) -> Result<(), Error> {
-        let rendered = self.sm.push_str(s);
-
-        if self.sm.len() > self.width {
-            self.sm.clear();
-            self.sm.push_str(&self.buffer);
-            return Err(Error::LineFull)
-        }
-
-        self.buffer.push_str(&rendered);
-        Ok(())
+        self.push_codes(&codes_from_str(s))
     }
 
     /// Add a character to the output buffer.
@@ -155,18 +196,39 @@ impl<'a> Wrapper<'a> {
     /// If adding the character results in a line wider than the maximum number of columns,
     /// the character is not added to the output buffer and a LineFull error is returned.
     pub fn push(&mut self, ch: char) -> Result<(), Error> {
-        let rendered = self.sm.push(ch);
+        self.push_code(ch as i32)
+    }
 
-        if self.sm.len() > self.width {
-            self.sm.clear();
-            self.sm.push_str(&self.buffer);
-            return Err(Error::LineFull)
+    /// Add character codes to the output buffer, wrapping them if necessary.
+    ///
+    /// If the new codes cause the output to be wider than the maximum width, the current
+    /// buffer contents (if any) will be passed to the flush callback, the buffer will be
+    /// cleared, and the new codes will be added to the buffer. If the codes are wider
+    /// than the output buffer, they will be wrapped at code level.
+    ///
+    /// Explicit newline codes (10) in the input force a flush of the current
+    /// buffer, starting a new output line (figfont.txt lines 1617-1621).
+    /// Carriage return codes (13) are normalized to newline (10).
+    pub fn wrap_codes(&mut self, codes: &[i32], flush: &dyn Fn(&[String])) {
+        // Normalize CR to LF: convert \r\n -> \n and bare \r -> \n
+        let normalized: Vec<i32> = normalize_newlines(codes);
+
+        if normalized.contains(&10) {
+            let mut parts = normalized.split(|&c| c == 10);
+            let first = parts.next().unwrap();
+            self.wrap_segment(first, flush);
+            for segment in parts {
+                flush(&self.get());
+                self.clear();
+                if segment.is_empty() {
+                    continue;
+                }
+                self.wrap_segment(segment, flush);
+            }
+            return;
         }
 
-        if rendered {
-            self.buffer.push(ch);
-        }
-        Ok(())
+        self.wrap_segment(codes, flush);
     }
 
     /// Add a string to the output buffer, wrapping it if necessary.
@@ -179,47 +241,23 @@ impl<'a> Wrapper<'a> {
     /// Explicit newline characters ('\n') in the input force a flush of the current
     /// buffer, starting a new output line (figfont.txt lines 1617-1621).
     pub fn wrap_str(&mut self, s: &str, flush: &dyn Fn(&[String])) {
-        // Handle explicit newlines per spec (figfont.txt lines 1617-1621):
-        // When input contains newlines, flush the current buffer as a complete line
-        // and continue wrapping subsequent text on a new line.
-        // Normalize CRLF and bare CR to LF for cross-platform compatibility.
-        let normalized = s.replace("\r\n", "\n").replace("\r", "\n");
-        if normalized.contains('\n') {
-            for (i, segment) in normalized.split('\n').enumerate() {
-                if i > 0 {
-                    // Flush on newline, matching reference figlet which calls
-                    // printline() unconditionally. Even an empty buffer produces
-                    // height blank lines (get() returns height empty-string lines).
-                    flush(&self.get());
-                    self.clear();
-                }
-
-                if segment.is_empty() {
-                    continue;
-                }
-
-                self.wrap_segment(segment, flush);
-            }
-            return;
-        }
-
-        self.wrap_segment(s, flush);
+        self.wrap_codes(&codes_from_str(s), flush);
     }
 
     /// Internal wrapper logic for a single segment (no newlines).
-    fn wrap_segment(&mut self, s: &str, flush: &dyn Fn(&[String])) {
-        let empty = s.trim().is_empty();
+    fn wrap_segment(&mut self, codes: &[i32], flush: &dyn Fn(&[String])) {
+        let all_space = codes.iter().all(|&c| is_space(c));
 
-        // Handle whitespace tokens per spec (figfont.txt lines 1623-1633):
+        // Handle whitespace codes per spec (figfont.txt lines 1623-1633):
         // - At wrap points: discard all blanks until next non-blank character
         // - At input start or after linebreak: preserve blanks as FIGcharacters
         // - Between words: accumulate whitespace, commit when next word arrives
-        if empty {
+        if all_space {
             if self.buffer.is_empty() {
-                self.push_str(s).ok();
+                self.push_codes(codes).ok();
                 return;
             }
-            self.pending_space.get_or_insert_with(String::new).push_str(s);
+            self.pending_space.get_or_insert_with(Vec::new).extend_from_slice(codes);
             return;
         }
 
@@ -233,21 +271,24 @@ impl<'a> Wrapper<'a> {
         if commit_space {
             let sp = space.unwrap();
             let pre_space_buffer = self.buffer.clone();
-            if self.push_str(&sp).is_err() {
+            if self.push_codes(&sp).is_err() {
                 flush(&self.get());
                 self.clear();
-                if self.push_str(s).is_err() {
-                    self.wrap_word(s, flush);
+                if self.push_codes(codes).is_err() {
+                    self.wrap_word(codes, flush);
                 }
                 return;
-            } else if self.push_str(s).is_err() {
+            } else if self.push_codes(codes).is_err() {
                 // Word doesn't fit after space. Flush without trailing space.
                 self.sm.clear();
-                self.sm.push_str(&pre_space_buffer);
+                self.buffer = pre_space_buffer.clone();
+                for &c in &self.buffer {
+                    self.sm.push_code(c);
+                }
                 flush(&self.get());
                 self.clear();
-                if self.push_str(s).is_err() {
-                    self.wrap_word(s, flush);
+                if self.push_codes(codes).is_err() {
+                    self.wrap_word(codes, flush);
                 }
                 return;
             } else {
@@ -255,38 +296,69 @@ impl<'a> Wrapper<'a> {
             }
         }
 
-        // Try word on current buffer; wrap at character level if needed.
-        if self.push_str(s).is_err() {
+        // Try codes on current buffer; wrap at code level if needed.
+        if self.push_codes(codes).is_err() {
             if !self.buffer.is_empty() {
                 flush(&self.get());
                 self.clear();
             }
-            if self.push_str(s).is_err() {
-                self.wrap_word(s, flush);
+            if self.push_codes(codes).is_err() {
+                self.wrap_word(codes, flush);
             }
         }
     }
 
-    /// Add a word to the output buffer, breaking it if necessary.
+    /// Add codes to the output buffer, breaking them if necessary.
     ///
-    /// Add this word to the output character by character. If a new character causes the
+    /// Add the codes one by one. If a new code causes the
     /// output to be wider than the maximum width, the current buffer contents (if any) will
-    /// be passed to the flush callback, the buffer will be cleared, and the new character
-    /// will be added to the buffer. If the character is wider than the maximum width, it
+    /// be passed to the flush callback, the buffer will be cleared, and the new code will be
+    /// added to the buffer. If the code is wider than the maximum width, it
     /// will be added without any additional processing.
-    pub fn wrap_word(&mut self, word: &str, flush: &dyn Fn(&[String])) {
-        for c in word.chars() {
-            if self.push(c).is_err() {
+    fn wrap_word(&mut self, codes: &[i32], flush: &dyn Fn(&[String])) {
+        for &code in codes {
+            if self.push_code(code).is_err() {
                 if !self.buffer.is_empty() {
                     flush(&self.get());
                     self.clear();
                 }
-                if self.sm.push(c) {
-                    self.buffer.push(c);
+                if self.sm.push_code(code) {
+                    self.buffer.push(code);
                 }
             }
         }
     }
+}
+
+/// Check whether a code represents a horizontal whitespace character
+/// (space, tab, form feed, or other ASCII whitespace).
+fn is_space(code: i32) -> bool {
+    code == 32 || code == 9 || (code >= 11 && code <= 13)
+}
+
+/// Normalize carriage return codes to newline codes.
+/// \r\n (13, 10) becomes \n (10), bare \r (13) becomes \n (10).
+fn normalize_newlines(codes: &[i32]) -> Vec<i32> {
+    let mut result = Vec::with_capacity(codes.len());
+    let mut i = 0;
+    while i < codes.len() {
+        if codes[i] == 13 && i + 1 < codes.len() && codes[i + 1] == 10 {
+            result.push(10);
+            i += 2;
+        } else if codes[i] == 13 {
+            result.push(10);
+            i += 1;
+        } else {
+            result.push(codes[i]);
+            i += 1;
+        }
+    }
+    result
+}
+
+/// Convert a UTF-8 string to character codes.
+fn codes_from_str(s: &str) -> Vec<i32> {
+    s.chars().map(|c| c as i32).collect()
 }
 
 fn add_pad(v: &[String], pad_size: usize) -> Vec<String> {
@@ -560,5 +632,44 @@ mod tests {
         assert_eq!(fc, 1, "should flush once during wrap_word");
         assert_eq!(&flushed[0], &"hi te", "flushed content is 'hi te' (5 chars)");
         assert_eq!(wr.get()[0], "st", "remaining buffer holds 'st'");
+    }
+
+    #[test]
+    fn test_wrap_codes_basic() {
+        let font = test_font().unwrap();
+        let sm = Smusher::new(&font);
+        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let flushed = RefCell::new(Vec::new());
+
+        // "Hi" as codes: 72, 105
+        wr.wrap_codes(&[72, 105], &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
+
+        let flushed = flushed.borrow();
+        assert!(flushed.is_empty(), "short input should not flush");
+        assert!(!wr.is_empty(), "buffer should contain rendered Hi");
+    }
+
+    #[test]
+    fn test_wrap_codes_with_newline() {
+        let font = test_font().unwrap();
+        let sm = Smusher::new(&font);
+        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let flushed = RefCell::new(Vec::new());
+
+        // "Hi\n" as codes: 72, 105, 10
+        wr.wrap_codes(&[72, 105, 10], &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
+
+        let flushed = flushed.borrow();
+        assert_eq!(flushed.len(), 1, "newline code should flush");
+        assert!(wr.is_empty(), "buffer should be empty after flush");
+    }
+
+    #[test]
+    fn test_push_codes() {
+        let font = test_font().unwrap();
+        let mut wr = Wrapper::new(Smusher::new(&font), 80, Align::Left);
+
+        wr.push_codes(&[72, 105]).unwrap(); // "Hi"
+        assert!(!wr.is_empty());
     }
 }

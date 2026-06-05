@@ -264,7 +264,7 @@ impl<'a> Smusher<'a> {
     ///
     /// Returns `true` if the character was rendered, `false` if it was missing from the font
     /// and skipped.
-    fn push_code(&mut self, code: i32) -> bool {
+    pub(crate) fn push_code(&mut self, code: i32) -> bool {
         let code = if let Some(ctrl) = self.control {
             ctrl.apply(code)
         } else {
