@@ -183,7 +183,6 @@ impl EncodingDecoder<'_> {
                     _ => {
                         // All other ~X sequences are removed from input
                         self.pos += 1;
-                        self.hz_two_byte = false;
                         continue;
                     }
                 }
@@ -514,9 +513,13 @@ mod tests {
     }
 
     #[test]
-    fn hz_stray_tilde_resets_mode() {
-        // ~{ enters two-byte, ~X is removed from input (consumes both bytes silently)
-        assert_eq!(collect_hz(&[b'~', b'{', b'~', b'X']), vec![]);
+    fn hz_stray_tilde_preserves_mode() {
+        // ~{ enters two-byte, ~X is removed silently without affecting mode,
+        // subsequent bytes are still decoded as two-byte pairs
+        assert_eq!(
+            collect_hz(&[b'~', b'{', b'~', b'X', 0xA1, 0xA2]),
+            vec![0xA1A2]
+        );
     }
 
     /* Latin1 tests */
