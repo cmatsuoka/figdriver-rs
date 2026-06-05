@@ -265,7 +265,7 @@ impl<'a> Smusher<'a> {
 
     /// Limit the size, in sub-characters, of the output buffer. If the buffer is longer than
     /// the specified size, the rightmost sub-characters will be removed.
-    pub(crate) fn trim(&mut self, width: usize) {
+    pub fn trim(&mut self, width: usize) {
         self.output = trim(&self.output, width);
     }
 }

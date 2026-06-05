@@ -27,7 +27,7 @@ struct TransformationStage {
 /// Input encoding mode for multi-byte character processing.
 /// Determines how the FIGdriver interprets multi-byte character input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum InputEncoding {
+pub enum InputEncoding {
     /// Default encoding (no special handling).
     Default,
     /// HZ encoding for simplified Chinese text.
@@ -99,6 +99,7 @@ pub struct Flc {
     /// The input encoding specified by the control file.
     encoding: InputEncoding,
     /// ISO 2022 settings accumulated from "g" commands.
+    #[allow(dead_code)]
     iso2022: Iso2022Settings,
 }
 
@@ -201,11 +202,12 @@ impl Flc {
     }
 
     /// Get the configured input encoding.
-    fn encoding(&self) -> InputEncoding {
+    pub fn encoding(&self) -> InputEncoding {
         self.encoding
     }
 
     /// Get the accumulated ISO 2022 settings.
+    #[allow(dead_code)]
     fn iso2022_settings(&self) -> &Iso2022Settings {
         &self.iso2022
     }
@@ -257,7 +259,7 @@ impl Control {
     }
 
     /// Get the effective encoding (last encoding command wins).
-    fn encoding(&self) -> InputEncoding {
+    pub fn encoding(&self) -> InputEncoding {
         self.encoding
     }
 }
