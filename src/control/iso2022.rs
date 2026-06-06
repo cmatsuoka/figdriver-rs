@@ -91,27 +91,20 @@ impl<'a> Iso2022Decoder<'a> {
             return None;
         }
 
-        if let Some(ss) = self.single_shift.take() {
-            let saved_gl = self.gl;
-            self.gl = ss;
-            let result = self.next();
-            self.gl = saved_gl;
-            return result;
-        }
-
         let ch = self.read_byte()?;
 
         match ch {
             // SO: invoke G1 into GL
-            0x0E => { self.gl = 1; self.next() }
+            0x0E => { self.single_shift = None; self.gl = 1; self.next() }
             // SI: invoke G0 into GL
-            0x0F => { self.gl = 0; self.next() }
+            0x0F => { self.single_shift = None; self.gl = 0; self.next() }
             // SS2 (8-bit): invoke G2 into GL for next char only
             0x8E => { self.single_shift = Some(2); self.next() }
             // SS3 (8-bit): invoke G3 into GL for next char only
             0x8F => { self.single_shift = Some(3); self.next() }
             // ESC sequence
             27 => {
+                self.single_shift = None;
                 let second = self.read_byte().unwrap_or(0);
                 self.handle_escape(second)
             }
@@ -207,11 +200,12 @@ impl<'a> Iso2022Decoder<'a> {
 
     fn decode_char(&mut self, ch: u8) -> Option<i32> {
         if (0x21..=0x7E).contains(&ch) {
-            if self.gndbl[self.gl] {
+            let gl = self.single_shift.take().unwrap_or(self.gl);
+            if self.gndbl[gl] {
                 let ch2 = self.read_byte().unwrap_or(0) as i32;
-                Some(self.gn[self.gl] | ((ch as i32) << 8) | ch2)
+                Some(self.gn[gl] | ((ch as i32) << 8) | ch2)
             } else {
-                Some(self.gn[self.gl] | (ch as i32))
+                Some(self.gn[gl] | (ch as i32))
             }
         } else if (0xA0..=0xFF).contains(&ch) {
             if self.gndbl[self.gr] {
@@ -337,5 +331,17 @@ mod tests {
         // ESC N A -> G2 (one char, Y=0x59), then B -> G1 (restored, X=0x58)
         let input = [0x1B, b')', b'X', 0x0E, 0x1B, b'*', b'Y', 0x1B, b'N', 0x41, 0x42];
         assert_eq!(decode(&input, &settings), vec![0x590041, 0x580042]);
+    }
+
+    #[test]
+    fn ss2_followed_by_locking_shift_preserves_locking_shift() {
+        let settings = Iso2022Settings::default();
+        // ESC ) X designates G1, ESC * Y designates G2
+        // ESC N sets SS2 (single shift G2), then SO sets GL=G1 permanently
+        // SO clears the single shift, so both A and B decode from G1
+        // (with the old recursive code, SO's effect would be lost due to
+        // gl restoration, causing B to decode from G0 instead of G1)
+        let input = [0x1B, b')', b'X', 0x1B, b'*', b'Y', 0x1B, b'N', 0x0E, 0x41, 0x42];
+        assert_eq!(decode(&input, &settings), vec![0x580041, 0x580042]);
     }
 }

@@ -82,8 +82,16 @@ impl ParsedIso2022Settings {
             if let Some(gs) = gset {
                 let double_byte = matches!(gs.size, Iso2022CharSetSize::Bits94x94);
                 let low_byte = if matches!(gs.size, Iso2022CharSetSize::Bits96) { 0x80 } else { 0 };
+                let mut d = gs.designating_byte;
+                if (gs.size == Iso2022CharSetSize::Bits94 && d == b'B' as i32)
+                    || ((gs.size == Iso2022CharSetSize::Bits96
+                        || gs.size == Iso2022CharSetSize::Bits94x94)
+                        && d == b'A' as i32)
+                {
+                    d = 0;
+                }
                 g_sets[i] = Some(Iso2022GSet {
-                    base_code: gs.designating_byte << 16 | low_byte,
+                    base_code: d << 16 | low_byte,
                     double_byte,
                 });
             }
