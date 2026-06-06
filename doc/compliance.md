@@ -5,7 +5,7 @@
 
 # FIGdriver Standard Compliance Report
 
-This document records figdriver-rs compliance against the FIGfont Version 2 standard
+This document records FIGdriver-rs compliance against the FIGfont Version 2 standard
 (specified in `doc/figfont.txt`).
 
 ## 1. Required Features
@@ -224,6 +224,6 @@ The spec explicitly notes (line 225):
 > but FIGlet 2.2 does not.
 
 The reference implementation (figlet 2.2.2) does not support vertical fitting or
-smushing. Implementing these features would make figdriver-rs more capable than
+smushing. Implementing these features would make FIGdriver-rs more capable than
 the reference, but would require a significant new rendering subsystem to handle
 vertical character stacking and line-level supersmushing.
