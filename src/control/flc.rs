@@ -3,6 +3,7 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 use crate::Error;
 use crate::zip::{is_zip, decompress_zip};
+use super::iso2022::{Iso2022GSet, Iso2022Settings};
 
 /// Input encoding mode for multi-byte character processing.
 /// Determines how the FIGdriver interprets multi-byte character input.
@@ -20,6 +21,8 @@ pub enum InputEncoding {
     Dbcs,
     /// UTF-8 encoding for Unicode text.
     UTF8,
+    /// ISO 2022 encoding with stream-level escape sequence parsing.
+    ISO2022,
 }
 
 /// Size of an ISO 2022 character set.
@@ -48,26 +51,47 @@ struct Iso2022CharSet {
 /// Accumulated ISO 2022 settings from "g" commands in a control file.
 /// Manages G-register assignments and half-character mapping.
 #[derive(Debug, Clone)]
-struct Iso2022Settings {
+struct ParsedIso2022Settings {
     /// G0-G3 character set register assignments.
     g_sets: [Option<Iso2022CharSet>; 4],
     /// G-register used for the left half of two-byte characters.
-    left_half: i32,
+    left_half: usize,
     /// G-register used for the right half of two-byte characters.
-    right_half: i32,
+    right_half: usize,
 }
 
-impl Default for Iso2022Settings {
+impl Default for ParsedIso2022Settings {
     fn default() -> Self {
         Self {
             g_sets: [
-                Some(Iso2022CharSet { size: Iso2022CharSetSize::Bits94, designating_byte: 66 }),
-                Some(Iso2022CharSet { size: Iso2022CharSetSize::Bits96, designating_byte: 65 }),
+                Some(Iso2022CharSet { size: Iso2022CharSetSize::Bits94, designating_byte: 0 }),
+                Some(Iso2022CharSet { size: Iso2022CharSetSize::Bits96, designating_byte: 0 }),
                 None,
                 None,
             ],
             left_half: 0,
             right_half: 1,
+        }
+    }
+}
+
+impl ParsedIso2022Settings {
+    fn to_decoder_settings(&self) -> Iso2022Settings {
+        let mut g_sets = [None, None, None, None];
+        for (i, gset) in self.g_sets.iter().enumerate() {
+            if let Some(gs) = gset {
+                let double_byte = matches!(gs.size, Iso2022CharSetSize::Bits94x94);
+                let low_byte = if matches!(gs.size, Iso2022CharSetSize::Bits96) { 0x80 } else { 0 };
+                g_sets[i] = Some(Iso2022GSet {
+                    base_code: (gs.designating_byte as i32) << 16 | low_byte,
+                    double_byte,
+                });
+            }
+        }
+        Iso2022Settings {
+            g_sets,
+            left_half: self.left_half,
+            right_half: self.right_half,
         }
     }
 }
@@ -101,8 +125,7 @@ pub struct Flc {
     /// The input encoding specified by the control file.
     encoding: InputEncoding,
     /// ISO 2022 settings accumulated from "g" commands.
-    #[allow(dead_code)]
-    iso2022: Iso2022Settings,
+    iso2022: ParsedIso2022Settings,
 }
 
 /// Pipeline for chaining multiple control files together.
@@ -113,6 +136,8 @@ pub struct Control {
     files: Vec<Flc>,
     /// Effective encoding from the last control file in the pipeline.
     encoding: InputEncoding,
+    /// ISO 2022 settings from the last control file in the pipeline.
+    iso2022: Iso2022Settings,
 }
 
 impl Flc {
@@ -135,8 +160,9 @@ impl Flc {
     fn load_from_reader<L: IntoIterator<Item = std::io::Result<String>>>(lines: L) -> Result<Self, Error> {
         let mut stages: Vec<TransformationStage> = vec![TransformationStage { commands: Vec::new() }];
         let mut encoding = InputEncoding::Default;
-        let mut iso2022 = Iso2022Settings::default();
+        let mut iso2022 = ParsedIso2022Settings::default();
         let mut first_line = true;
+        let mut explicit_encoding = false;
 
         for line_result in lines {
             let line = line_result?;
@@ -167,18 +193,25 @@ impl Flc {
                 }
                 Some(b'h') => {
                     encoding = InputEncoding::HZ;
+                    explicit_encoding = true;
                 }
                 Some(b'j') => {
                     encoding = InputEncoding::ShiftJIS;
+                    explicit_encoding = true;
                 }
                 Some(b'b') => {
                     encoding = InputEncoding::Dbcs;
+                    explicit_encoding = true;
                 }
                 Some(b'u') => {
                     encoding = InputEncoding::UTF8;
+                    explicit_encoding = true;
                 }
                 Some(b'g') => {
                     parse_g_command(trimmed, &mut iso2022)?;
+                    if !explicit_encoding {
+                        encoding = InputEncoding::ISO2022;
+                    }
                 }
                 Some(b'0'..=b'9') | Some(b'-') | Some(b'\\') => {
                     if let Some(cmd) = parse_number_command(trimmed)? {
@@ -208,10 +241,9 @@ impl Flc {
         self.encoding
     }
 
-    /// Get the accumulated ISO 2022 settings.
-    #[allow(dead_code)]
-    fn iso2022_settings(&self) -> &Iso2022Settings {
-        &self.iso2022
+    /// Get the accumulated ISO 2022 settings as decoder configuration.
+    pub fn iso2022_settings(&self) -> Iso2022Settings {
+        self.iso2022.to_decoder_settings()
     }
 }
 
@@ -241,14 +273,16 @@ impl Control {
     pub fn from_paths<P: AsRef<Path>, I: IntoIterator<Item = P>>(paths: I) -> Result<Self, Error> {
         let mut files = Vec::new();
         let mut encoding = InputEncoding::Default;
+        let mut iso2022 = Iso2022Settings::default();
 
         for path in paths {
             let flc = Flc::from_path(path)?;
             encoding = flc.encoding();
+            iso2022 = flc.iso2022_settings();
             files.push(flc);
         }
 
-        Ok(Control { files, encoding })
+        Ok(Control { files, encoding, iso2022 })
     }
 
     /// Apply all transformations across all files in order.
@@ -263,6 +297,11 @@ impl Control {
     /// Get the effective encoding (last encoding command wins).
     pub fn encoding(&self) -> InputEncoding {
         self.encoding
+    }
+
+    /// Get ISO 2022 settings from the last control file in the pipeline.
+    pub fn iso2022_settings(&self) -> &Iso2022Settings {
+        &self.iso2022
     }
 }
 
@@ -604,7 +643,7 @@ fn parse_numeric_code(s: &str) -> Result<i32, Error> {
 }
 
 /// Parse a "g" command for ISO 2022 settings.
-fn parse_g_command(line: &str, iso2022: &mut Iso2022Settings) -> Result<(), Error> {
+fn parse_g_command(line: &str, iso2022: &mut ParsedIso2022Settings) -> Result<(), Error> {
     let parts: Vec<&str> = line.split_whitespace().collect();
     if parts.len() < 2 {
         return Err(Error::ControlFormat("invalid g command"));
@@ -613,8 +652,8 @@ fn parse_g_command(line: &str, iso2022: &mut Iso2022Settings) -> Result<(), Erro
     let g_keyword = parts[0];
     let rest = g_keyword.strip_prefix('g').unwrap_or("");
 
-    if rest == "L" || rest == "R" {
-        let g_reg: i32 = parts[1].parse().map_err(|_| Error::ControlFormat("invalid g register"))?;
+   if rest == "L" || rest == "R" {
+        let g_reg: usize = parts[1].parse().map_err(|_| Error::ControlFormat("invalid g register"))?;
         if !(0..=3).contains(&g_reg) {
             return Err(Error::ControlFormat("invalid g register"));
         }
@@ -635,7 +674,7 @@ fn parse_g_command(line: &str, iso2022: &mut Iso2022Settings) -> Result<(), Erro
     } else if g_keyword == "g" && parts.len() >= 3 {
         let first_arg = parts[1];
         if first_arg == "L" || first_arg == "R" {
-            let g_reg: i32 = parts[2].parse().map_err(|_| Error::ControlFormat("invalid g register"))?;
+            let g_reg: usize = parts[2].parse().map_err(|_| Error::ControlFormat("invalid g register"))?;
             if !(0..=3).contains(&g_reg) {
                 return Err(Error::ControlFormat("invalid g register"));
             }
@@ -828,9 +867,7 @@ mod tests {
     fn test_parse_iso2022_g_command() {
         let file = create_flc("g 0 94 B\ng 1 96 A\ng L 0\ng R 1\n");
         let flc = Flc::from_path(file.path()).unwrap();
-        let settings = flc.iso2022_settings();
-        assert_eq!(settings.left_half, 0);
-        assert_eq!(settings.right_half, 1);
+        assert_eq!(flc.encoding(), InputEncoding::ISO2022);
     }
 
     // Skip comment lines and blank lines
@@ -904,6 +941,22 @@ mod tests {
         let file = create_flc("h\nu\n");
         let flc = Flc::from_path(file.path()).unwrap();
         assert_eq!(flc.encoding(), InputEncoding::UTF8);
+    }
+
+    // g command does not override explicit encoding
+    #[test]
+    fn test_g_does_not_override_encoding() {
+        let file = create_flc("u\ng 0 94 B\n");
+        let flc = Flc::from_path(file.path()).unwrap();
+        assert_eq!(flc.encoding(), InputEncoding::UTF8);
+    }
+
+    // g command sets ISO2022 when no explicit encoding is present
+    #[test]
+    fn test_g_sets_iso2022_without_explicit_encoding() {
+        let file = create_flc("g 0 94 B\n");
+        let flc = Flc::from_path(file.path()).unwrap();
+        assert_eq!(flc.encoding(), InputEncoding::ISO2022);
     }
 
     // Control chains multiple files

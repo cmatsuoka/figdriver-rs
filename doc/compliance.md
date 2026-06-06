@@ -26,7 +26,7 @@ The standard states (line 1545):
 | Old_Layout parameter | ✔ | Parsed and used for horizontal layout |
 | Comment lines | ✔ | Skipped during loading |
 | Print_Direction (LTR/RTL) | ✔ | Parsed and used |
-| Full_Layout parameter | ✔ | Parsed; horizontal bits used; vertical bits ignored (see §3) |
+| Full_Layout parameter | ✔ | Parsed; horizontal bits used; vertical bits ignored (see section 3) |
 | Codetag_Count | ✔ | Parsed (informational) |
 | Required characters (32-126 + 7 Deutsch) | ✔ | Loaded in fixed order |
 | Code-tagged characters | ✔ | Decimal, hex (`0x`), octal (`0`), negative codes, `-1` terminator |
@@ -54,7 +54,7 @@ The standard states (line 1545):
 | `b` command (DBCS declaration) | ✔ | Parsed; generic DBCS decoder implemented (`EncodingDecoder`) |
 | `u` command (UTF-8 declaration) | ✔ | Parsed; UTF-8 decoder implemented (`EncodingDecoder`) |
 | Latin-1 encoding | ✔ | Decoder implemented (`EncodingDecoder`) |
-| `g` command (ISO 2022 G-register) | ⚠ | Parsed and stored, but ISO 2022 decoder not implemented |
+| `g` command (ISO 2022 G-register) | ✔ | Parsed, stored, and decoder implemented (`Iso2022Decoder`) |
 
 ## 2. Horizontal Layout Modes
 
@@ -85,7 +85,7 @@ All six horizontal smushing rules are implemented.
 Vertical fitting and smushing are **not implemented**. The relevant bits in Full_Layout
 (8192, 16384) are parsed from the font header but have no effect on rendering.
 
-This is consistent with the reference implementation: FIGlet 2.2 also does not support
+This is consistent with the reference implementation: FIGlet 2.2.5 also does not support
 vertical operations (per spec line 1689). Only FIGWin 1.0 supports them.
 
 | Mode | Full_Layout bit | Status |
@@ -138,23 +138,24 @@ Per spec lines 1654-1671:
 | Single-entry handling | ✔ | Subsequent entries ignored |
 | `.flf` compressed fonts | ✔ | |
 | `.flc` compressed control files | ✔ | |
-| Decompression size limit | ✔ | 10 MB (zip bomb protection) |
 
 ## 9. Layout Parameter Consistency — COMPLIANT
 
 The implementation correctly interprets the relationship between Old_Layout and
 Full_Layout per spec lines 743-828:
 
-- Old_Layout `-1` → full width
-- Old_Layout `0` → fitting (or universal smush when Full_Layout bit 128 is set with no rule bits)
-- Old_Layout positive → controlled smush with specified rule bits
-- Full_Layout bit 64 → horizontal fitting default
-- Full_Layout bit 128 → horizontal smush default
-- Full_Layout bits 1-32 → controlled smush rule selection
+| Feature | Status | Notes |
+|---|---|---|
+| Old_Layout `-1` | ✔ | full width |
+| Old_Layout `0`  | ✔ | fitting (or universal smush when Full_Layout bit 128 is set with no rule bits) |
+| Old_Layout positive | ✔ | controlled smush with specified rule bits |
+| Full_Layout bit 64  | ✔ | horizontal fitting default |
+| Full_Layout bit 128 | ✔ | horizontal smush default |
+| Full_Layout bits 1-32 | ✔ | controlled smush rule selection |
 
 ## 10. Naming Convention — COMPLIANT
 
-Per spec §8.3:
+Per spec section 8.3:
 
 > Program name must include capitalized "FIG"
 > Must have an incremental version number specific to its platform
@@ -166,13 +167,13 @@ Per spec §8.3:
 
 ### Notes on naming
 
-Per spec §8.4, a new program on a platform that already has a FIGdriver must use a
+Per spec section 8.4, a new program on a platform that already has a FIGdriver must use a
 distinct name. The project name `FIGdriver-rs` is distinct from the existing `figlet`
 distribution on Linux systems.
 
 ## 11. Licensing — COMPLIANT
 
-Per spec §8.1 ("PROFIT"):
+Per spec section 8.1 ("PROFIT"):
 
 | Requirement | Status | Notes |
 |---|:---:|---|
@@ -187,7 +188,7 @@ Per spec §8.1 ("PROFIT"):
 The project is licensed under the MIT license. The MIT license satisfies all requirements
 of the PROFIT clause: the software is freely available, the source code is public, and
 there are no mechanisms for self-disabling, donation requests, or paywalled improvements.
-Per spec §8.4, source code must be available to the public or at least to potential
+Per spec section 8.4, source code must be available to the public or at least to potential
 developers of later versions; this is satisfied by the public GitHub repository.
 
 ## 12. Summary of Non-Compliant or Incomplete Features
@@ -195,17 +196,25 @@ developers of later versions; this is satisfied by the public GitHub repository.
 | Feature | Gap | Priority |
 |---|---|---|
 | Vertical fitting and smushing | Not implemented (all 7 bits: 256-4096, 8192, 16384) | Low — FIGlet 2.2 also omits this |
-| ISO 2022 decoder | FLC `g` commands parsed but G-registers not applied | Low — legacy East Asian encoding |
 
 ### Notes on ISO 2022 decoder
 
-The ISO 2022 decoder requires tracking G-register state and interpreting escape
-sequences in the input stream to switch character sets dynamically. This is distinct
-from the other encoding decoders (HZ, Shift-JIS, DBCS, Latin-1, UTF-8), which are
-now fully implemented in `EncodingDecoder`. The `g` command settings are parsed and
-stored, but the actual runtime decoding of ISO 2022 escape sequences is not yet wired
-into the rendering pipeline. Implementing it would require an additional decoder mode
-that processes ESC sequences in the input byte stream to assign and switch G-registers.
+The ISO 2022 decoder is implemented in `Iso2022Decoder` (`src/control/iso2022.rs`)
+and wired into the rendering pipeline through `EncodingDecoder`. The decoder handles:
+- SO/SI locking shifts (0x0E/0x0F)
+- SS2/SS3 single-shift (ESC N/O, 0x8E/0x8F)
+- LS1R/LS2R/LS3R locking shift right (ESC ~, }, |)
+- Character set designation for G0-G3 (94-char, 96-char, 94x94 double-byte)
+- Deprecated paren-less ESC $ x designation
+
+The implementation matches the reference FIGlet 2.2.5 behavior. The following
+ECMA-35 sequences are intentionally omitted (also absent from FIGlet 2.2.5):
+- ACS (ESC SP F, code structure announcement)
+- CZD (ESC ! F, C0 control set designation)
+- C1D (ESC " F, C1 control set designation)
+
+These are not needed for FIGfont, as `g` commands in the control file provide all
+necessary configuration.
 
 ### Notes on encoding decoders
 
@@ -223,7 +232,7 @@ The spec explicitly notes (line 225):
 > Not all FIGdrivers do vertical fitting or smushing. At present, FIGWin 1.0 does,
 > but FIGlet 2.2 does not.
 
-The reference implementation (figlet 2.2.2) does not support vertical fitting or
+The reference implementation (FIGlet 2.2.5) does not support vertical fitting or
 smushing. Implementing these features would make FIGdriver-rs more capable than
 the reference, but would require a significant new rendering subsystem to handle
 vertical character stacking and line-level supersmushing.
