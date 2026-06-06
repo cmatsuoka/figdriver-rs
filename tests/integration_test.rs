@@ -342,3 +342,48 @@ fn paragraph_mode_newline_converts_to_space() {
         without_space[0].chars().count()
     );
 }
+
+#[test]
+fn crlf_treated_as_single_newline() {
+    new_smusher!(fnt, wr, "fonts/small.flf", 80, figdriver::Align::Left);
+    let flushed = std::cell::RefCell::new(Vec::new());
+    let closure = &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
+
+    wr.wrap_codes(&[72, 101, 108, 108, 111, 13, 10, 87, 111, 114, 108, 100], closure);
+
+    let flushed = flushed.borrow();
+    assert_eq!(flushed.len(), 1, "CRLF should produce one flush (not two)");
+}
+
+#[test]
+fn bare_cr_treated_as_newline() {
+    new_smusher!(fnt, wr, "fonts/small.flf", 80, figdriver::Align::Left);
+    let flushed = std::cell::RefCell::new(Vec::new());
+    let closure = &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
+
+    wr.wrap_codes(&[72, 101, 108, 108, 111, 13, 87, 111, 114, 108, 100], closure);
+
+    let flushed = flushed.borrow();
+    assert_eq!(flushed.len(), 1, "bare CR should produce one flush");
+}
+
+#[test]
+fn tab_code_treated_as_whitespace() {
+    new_smusher!(fnt, wr, "fonts/small.flf", 80, figdriver::Align::Left);
+    let flushed = std::cell::RefCell::new(Vec::new());
+    let closure = &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
+
+    wr.wrap_codes(&[72, 101, 108, 108, 111, 9, 9, 87, 111, 114, 108, 100], closure);
+
+    let flushed = flushed.borrow();
+    assert!(flushed.is_empty(), "tab-separated words should not flush on narrow line");
+}
+
+#[test]
+fn consecutive_tabs_grouped_as_whitespace() {
+    new_smusher!(fnt, wr, "fonts/small.flf", 80, figdriver::Align::Left);
+
+    wr.wrap_codes(&[9, 9, 9], &dummy);
+    let pending = wr.get();
+    assert!(!pending.is_empty(), "tabs at start should be preserved as leading whitespace");
+}

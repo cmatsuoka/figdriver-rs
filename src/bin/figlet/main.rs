@@ -439,12 +439,16 @@ fn split_by_newline(codes: &[i32]) -> Vec<&[i32]> {
     segments
 }
 
+fn is_ws_code(code: i32) -> bool {
+    code == 32 || code == 9 || code == 10 || code == 13
+}
+
 fn is_blank_codes(codes: &[i32]) -> bool {
-    codes.iter().all(|&c| c == 32 || c == 9 || c == 10 || c == 13)
+    codes.iter().all(is_ws_code)
 }
 
 fn is_blank_str(s: &str) -> bool {
-    s.chars().all(|c| c == ' ' || c == '\n' || c == '\r')
+    s.chars().all(|c| c == ' ' || c == '\t' || c == '\n' || c == '\r')
 }
 
 fn write_tokens_codes(wr: &mut figdriver::Wrapper, codes: &[i32]) {
@@ -452,10 +456,10 @@ fn write_tokens_codes(wr: &mut figdriver::Wrapper, codes: &[i32]) {
     let mut start = 0;
 
     while let Some((_i, &code)) = indices.next() {
-        let is_ws = code == 32 || code == 9 || code == 10 || code == 13;
+        let is_ws = is_ws_code(code);
         let is_space = code == 32;
         while let Some(&(_j, &next_code)) = indices.peek() {
-            let next_ws = next_code == 32 || next_code == 9 || next_code == 10 || next_code == 13;
+            let next_ws = is_ws_code(next_code);
             let next_space = next_code == 32;
             if next_ws != is_ws || (is_ws && next_space != is_space) {
                 break;
@@ -533,5 +537,135 @@ fn write_tokens(wr: &mut figdriver::Wrapper, s: &str) {
 fn print_output(v: &[String]) {
     for x in v {
         println!("{}", x);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn split_by_newline_empty() {
+        let result = split_by_newline(&[]);
+        assert_eq!(result, [<&[i32]>::default()]);
+    }
+
+    #[test]
+    fn split_by_newline_no_newlines() {
+        let codes = [104, 101, 108, 108, 111];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], &codes);
+    }
+
+    #[test]
+    fn split_by_newline_single_lf() {
+        let codes = [104, 101, 10, 119, 111];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], &[104, 101]);
+        assert_eq!(result[1], &[119, 111]);
+    }
+
+    #[test]
+    fn split_by_newline_single_cr() {
+        let codes = [104, 101, 13, 119, 111];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], &[104, 101]);
+        assert_eq!(result[1], &[119, 111]);
+    }
+
+    #[test]
+    fn split_by_newline_crlf_as_single_boundary() {
+        let codes = [104, 101, 13, 10, 119, 111];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], &[104, 101]);
+        assert_eq!(result[1], &[119, 111]);
+    }
+
+    #[test]
+    fn split_by_newline_crlf_no_extra_empty_segment() {
+        let codes = [65, 13, 10, 66, 13, 10, 67];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0], &[65]);
+        assert_eq!(result[1], &[66]);
+        assert_eq!(result[2], &[67]);
+    }
+
+    #[test]
+    fn split_by_newline_consecutive_lf() {
+        let codes = [65, 10, 10, 66];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0], &[65]);
+        assert!(result[1].is_empty());
+        assert_eq!(result[2], &[66]);
+    }
+
+    #[test]
+    fn split_by_newline_mixed_newlines() {
+        let codes = [65, 13, 10, 66, 10, 67, 13, 68];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 4);
+        assert_eq!(result[0], &[65]);
+        assert_eq!(result[1], &[66]);
+        assert_eq!(result[2], &[67]);
+        assert_eq!(result[3], &[68]);
+    }
+
+    #[test]
+    fn split_by_newline_trailing_crlf() {
+        let codes = [65, 13, 10];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], &[65]);
+        assert!(result[1].is_empty());
+    }
+
+    #[test]
+    fn split_by_newline_leading_crlf() {
+        let codes = [13, 10, 65];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 2);
+        assert!(result[0].is_empty());
+        assert_eq!(result[1], &[65]);
+    }
+
+    #[test]
+    fn is_blank_codes_empty() {
+        assert!(is_blank_codes(&[]));
+    }
+
+    #[test]
+    fn is_blank_codes_spaces_only() {
+        assert!(is_blank_codes(&[32, 32, 32]));
+    }
+
+    #[test]
+    fn is_blank_codes_newlines_only() {
+        assert!(is_blank_codes(&[10, 13]));
+    }
+
+    #[test]
+    fn is_blank_codes_tabs_only() {
+        assert!(is_blank_codes(&[9, 9]));
+    }
+
+    #[test]
+    fn is_blank_codes_mixed_whitespace() {
+        assert!(is_blank_codes(&[32, 9, 10, 13]));
+    }
+
+    #[test]
+    fn is_blank_codes_has_text() {
+        assert!(!is_blank_codes(&[65, 32]));
+    }
+
+    #[test]
+    fn is_blank_codes_only_text() {
+        assert!(!is_blank_codes(&[65, 66, 67]));
     }
 }
