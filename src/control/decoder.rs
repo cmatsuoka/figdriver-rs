@@ -26,11 +26,12 @@ impl Iterator for EncodingDecoder<'_> {
 
     fn next(&mut self) -> Option<i32> {
         match self.encoding {
-            InputEncoding::Default => self.next_latin1(),
-            InputEncoding::UTF8 => self.next_utf8(),
-            InputEncoding::Dbcs => self.next_dbcs(),
+            InputEncoding::Default  => self.next_utf8(),
+            InputEncoding::Latin1   => self.next_latin1(),
+            InputEncoding::UTF8     => self.next_utf8(),
+            InputEncoding::Dbcs     => self.next_dbcs(),
             InputEncoding::ShiftJIS => self.next_shiftjis(),
-            InputEncoding::HZ => self.next_hz(),
+            InputEncoding::HZ       => self.next_hz(),
         }
     }
 }
@@ -526,16 +527,16 @@ mod tests {
 
     #[test]
     fn latin1_basic() {
-        assert_eq!(collect(&[0x41, 0x42, 0x43], InputEncoding::Default), vec![0x41, 0x42, 0x43]);
+        assert_eq!(collect(&[0x41, 0x42, 0x43], InputEncoding::Latin1), vec![0x41, 0x42, 0x43]);
     }
 
     #[test]
     fn latin1_high_bytes() {
-        assert_eq!(collect(&[0xE9, 0xF1], InputEncoding::Default), vec![0xE9, 0xF1]);
+        assert_eq!(collect(&[0xE9, 0xF1], InputEncoding::Latin1), vec![0xE9, 0xF1]);
     }
 
     #[test]
     fn latin1_empty() {
-        assert_eq!(collect(&[], InputEncoding::Default), vec![]);
+        assert_eq!(collect(&[], InputEncoding::Latin1), vec![]);
     }
 }

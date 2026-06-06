@@ -1,8 +1,9 @@
 use std::ffi::OsString;
 use std::fmt;
-use std::io::{self, BufRead};
+use std::io::{self, BufRead, Read};
 use std::path::{Path, PathBuf, is_separator};
 use figdriver::Control;
+use figdriver::EncodingDecoder;
 
 mod cli;
 
@@ -50,6 +51,12 @@ impl std::error::Error for Error {
 impl From<figdriver::Error> for Error {
     fn from(e: figdriver::Error) -> Self {
         Error::Library(e)
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Self {
+        Error::Cli(e.to_string())
     }
 }
 
@@ -206,14 +213,33 @@ fn main() -> Result<(), Error> {
         .collect::<Vec<_>>()
         .join(" ");
 
+    let control = if control_files.is_empty() {
+        None
+    } else {
+        Some(Control::from_paths(&control_paths)?)
+    };
+
+    let codes = if msg.is_empty() {
+        let encoding = control.as_ref().map_or(figdriver::InputEncoding::Default, |c| c.encoding());
+        let mut stdin_bytes = Vec::new();
+        io::stdin().read_to_end(&mut stdin_bytes)?;
+        if stdin_bytes.is_empty() {
+            None
+        } else {
+            Some(EncodingDecoder::new(&stdin_bytes, encoding).collect())
+        }
+    } else {
+        None
+    };
+
     run(&fontpath, &msg, &RunConfig {
             layout_mode,
             print_dir,
             width,
             paragraph,
             justify,
-            control_paths,
-        })?;
+            codes,
+        }, control)?;
     Ok(())
 }
 
@@ -315,21 +341,15 @@ struct RunConfig {
     width: usize,
     paragraph: bool,
     justify: Justify,
-    control_paths: Vec<PathBuf>,
+    codes: Option<Vec<i32>>,
 }
 
-fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), figdriver::Error> {
+fn run(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Control>) -> Result<(), figdriver::Error> {
     if !path.exists() {
         return Err(figdriver::Error::FontNotFound(path.to_path_buf()));
     }
 
     let font = figdriver::FIGfont::from_path(path)?;
-
-    let control = if cfg.control_paths.is_empty() {
-        None
-    } else {
-        Some(Control::from_paths(&cfg.control_paths)?)
-    };
 
     let layout_mode = cfg.layout_mode.unwrap_or(figdriver::LayoutMode::Default);
 
@@ -360,7 +380,20 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), figdriver::Error> 
     // "allow lines up to N-1 characters" rather than N characters.
     let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1, justify_align);
 
-    if !msg.is_empty() {
+    if let Some(ref codes) = cfg.codes {
+        if cfg.paragraph {
+            for segment in split_by_newline(codes) {
+                write_paragraph_codes(&mut wr, segment);
+            }
+            if !wr.is_empty() {
+                print_output(&wr.get());
+            }
+        } else {
+            for segment in split_by_newline(codes) {
+                write_line_codes(&mut wr, segment);
+            }
+        }
+    } else if !msg.is_empty() {
         write_line(&mut wr, msg);
     } else {
         let mut input = io::BufReader::new(io::stdin());
@@ -384,6 +417,83 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), figdriver::Error> 
     Ok(())
 }
 
+fn split_by_newline(codes: &[i32]) -> Vec<&[i32]> {
+    let mut segments = Vec::new();
+    let mut start = 0;
+    let mut i = 0;
+    while i < codes.len() {
+        let code = codes[i];
+        if code == 10 || code == 13 {
+            segments.push(&codes[start..i]);
+            if code == 13 && i + 1 < codes.len() && codes[i + 1] == 10 {
+                i += 2;
+            } else {
+                i += 1;
+            }
+            start = i;
+        } else {
+            i += 1;
+        }
+    }
+    segments.push(&codes[start..]);
+    segments
+}
+
+fn is_ws_code(code: i32) -> bool {
+    code == 32 || code == 9 || code == 10 || code == 13
+}
+
+fn is_blank_codes(codes: &[i32]) -> bool {
+    codes.iter().all(is_ws_code)
+}
+
+fn is_blank_str(s: &str) -> bool {
+    s.chars().all(|c| c == ' ' || c == '\t' || c == '\n' || c == '\r')
+}
+
+fn write_tokens_codes(wr: &mut figdriver::Wrapper, codes: &[i32]) {
+    let mut indices = codes.iter().enumerate().peekable();
+    let mut start = 0;
+
+    while let Some((_i, &code)) = indices.next() {
+        let is_ws = is_ws_code(code);
+        let is_space = code == 32;
+        while let Some(&(_j, &next_code)) = indices.peek() {
+            let next_ws = is_ws_code(next_code);
+            let next_space = next_code == 32;
+            if next_ws != is_ws || (is_ws && next_space != is_space) {
+                break;
+            }
+            indices.next();
+        }
+        let end = indices.peek().map_or(codes.len(), |(idx, _)| *idx);
+        wr.wrap_codes(&codes[start..end], &print_output);
+        start = end;
+    }
+}
+
+fn write_line_codes(wr: &mut figdriver::Wrapper, codes: &[i32]) {
+    wr.clear();
+    write_tokens_codes(wr, codes);
+    if !wr.is_empty() {
+        print_output(&wr.get());
+    }
+}
+
+fn write_paragraph_codes(wr: &mut figdriver::Wrapper, codes: &[i32]) {
+    if !wr.is_empty() {
+        if is_blank_codes(codes) || (codes.first() == Some(&32)) {
+            print_output(&wr.get());
+            wr.clear();
+        } else {
+            wr.wrap_codes(&[32], &print_output);
+        }
+    }
+    if !is_blank_codes(codes) {
+        write_tokens_codes(wr, codes);
+    }
+}
+
 fn write_line(wr: &mut figdriver::Wrapper, s: &str) {
     wr.clear();
     write_tokens(wr, s);
@@ -394,14 +504,16 @@ fn write_line(wr: &mut figdriver::Wrapper, s: &str) {
 
 fn write_paragraph(wr: &mut figdriver::Wrapper, s: &str) {
     if !wr.is_empty() {
-        if s.starts_with(' ') {
+        if s.starts_with(' ') || is_blank_str(s) {
             print_output(&wr.get());
             wr.clear();
         } else {
             wr.wrap_str(" ", &print_output);
         }
     }
-    write_tokens(wr, s);
+    if !is_blank_str(s) {
+        write_tokens(wr, s);
+    }
 }
 
 fn write_tokens(wr: &mut figdriver::Wrapper, s: &str) {
@@ -425,5 +537,135 @@ fn write_tokens(wr: &mut figdriver::Wrapper, s: &str) {
 fn print_output(v: &[String]) {
     for x in v {
         println!("{}", x);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn split_by_newline_empty() {
+        let result = split_by_newline(&[]);
+        assert_eq!(result, [<&[i32]>::default()]);
+    }
+
+    #[test]
+    fn split_by_newline_no_newlines() {
+        let codes = [104, 101, 108, 108, 111];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0], &codes);
+    }
+
+    #[test]
+    fn split_by_newline_single_lf() {
+        let codes = [104, 101, 10, 119, 111];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], &[104, 101]);
+        assert_eq!(result[1], &[119, 111]);
+    }
+
+    #[test]
+    fn split_by_newline_single_cr() {
+        let codes = [104, 101, 13, 119, 111];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], &[104, 101]);
+        assert_eq!(result[1], &[119, 111]);
+    }
+
+    #[test]
+    fn split_by_newline_crlf_as_single_boundary() {
+        let codes = [104, 101, 13, 10, 119, 111];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], &[104, 101]);
+        assert_eq!(result[1], &[119, 111]);
+    }
+
+    #[test]
+    fn split_by_newline_crlf_no_extra_empty_segment() {
+        let codes = [65, 13, 10, 66, 13, 10, 67];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0], &[65]);
+        assert_eq!(result[1], &[66]);
+        assert_eq!(result[2], &[67]);
+    }
+
+    #[test]
+    fn split_by_newline_consecutive_lf() {
+        let codes = [65, 10, 10, 66];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0], &[65]);
+        assert!(result[1].is_empty());
+        assert_eq!(result[2], &[66]);
+    }
+
+    #[test]
+    fn split_by_newline_mixed_newlines() {
+        let codes = [65, 13, 10, 66, 10, 67, 13, 68];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 4);
+        assert_eq!(result[0], &[65]);
+        assert_eq!(result[1], &[66]);
+        assert_eq!(result[2], &[67]);
+        assert_eq!(result[3], &[68]);
+    }
+
+    #[test]
+    fn split_by_newline_trailing_crlf() {
+        let codes = [65, 13, 10];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0], &[65]);
+        assert!(result[1].is_empty());
+    }
+
+    #[test]
+    fn split_by_newline_leading_crlf() {
+        let codes = [13, 10, 65];
+        let result = split_by_newline(&codes);
+        assert_eq!(result.len(), 2);
+        assert!(result[0].is_empty());
+        assert_eq!(result[1], &[65]);
+    }
+
+    #[test]
+    fn is_blank_codes_empty() {
+        assert!(is_blank_codes(&[]));
+    }
+
+    #[test]
+    fn is_blank_codes_spaces_only() {
+        assert!(is_blank_codes(&[32, 32, 32]));
+    }
+
+    #[test]
+    fn is_blank_codes_newlines_only() {
+        assert!(is_blank_codes(&[10, 13]));
+    }
+
+    #[test]
+    fn is_blank_codes_tabs_only() {
+        assert!(is_blank_codes(&[9, 9]));
+    }
+
+    #[test]
+    fn is_blank_codes_mixed_whitespace() {
+        assert!(is_blank_codes(&[32, 9, 10, 13]));
+    }
+
+    #[test]
+    fn is_blank_codes_has_text() {
+        assert!(!is_blank_codes(&[65, 32]));
+    }
+
+    #[test]
+    fn is_blank_codes_only_text() {
+        assert!(!is_blank_codes(&[65, 66, 67]));
     }
 }

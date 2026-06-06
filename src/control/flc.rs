@@ -10,6 +10,8 @@ use crate::zip::{is_zip, decompress_zip};
 pub enum InputEncoding {
     /// Default encoding (no special handling).
     Default,
+    /// Latin-1 encoding (ISO 8859-1).
+    Latin1,
     /// HZ encoding for simplified Chinese text.
     HZ,
     /// Shift-JIS encoding for Japanese text.
