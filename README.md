@@ -7,7 +7,7 @@
 
 -->
 
-# Figdriver-rs: A FIGfont renderer written in Rust
+# FIGdriver-rs: A FIGfont renderer written in Rust
 
 [![CI](https://github.com/cmatsuoka/figdriver-rs/actions/workflows/ci.yaml/badge.svg)](https://github.com/cmatsuoka/figdriver-rs/actions/workflows/ci.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
