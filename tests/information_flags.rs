@@ -19,7 +19,7 @@ fn infocode_zero_shows_copyright_and_version() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
-    assert!(lines[0].starts_with("figdriver-rs Copyright"));
+    assert!(lines[0].starts_with("FIGdriver-rs Copyright"));
     assert_eq!(lines[1], format!("Version: {}", env!("CARGO_PKG_VERSION")));
 }
 

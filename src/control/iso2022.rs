@@ -103,19 +103,19 @@ impl<'a> Iso2022Decoder<'a> {
 
         match ch {
             // SO: invoke G1 into GL
-            0x0E => { self.gl = 1; return self.next(); }
+            0x0E => { self.gl = 1; self.next() }
             // SI: invoke G0 into GL
-            0x0F => { self.gl = 0; return self.next(); }
+            0x0F => { self.gl = 0; self.next() }
             // SS2 (8-bit): invoke G2 into GL for next char only
-            0x8E => { self.single_shift = Some(2); return self.next(); }
+            0x8E => { self.single_shift = Some(2); self.next() }
             // SS3 (8-bit): invoke G3 into GL for next char only
-            0x8F => { self.single_shift = Some(3); return self.next(); }
+            0x8F => { self.single_shift = Some(3); self.next() }
             // ESC sequence
             27 => {
                 let second = self.read_byte().unwrap_or(0);
-                return self.handle_escape(second);
+                self.handle_escape(second)
             }
-            _ => return self.decode_char(ch),
+            _ => self.decode_char(ch),
         }
     }
 
@@ -187,9 +187,9 @@ impl<'a> Iso2022Decoder<'a> {
 
     fn designate(&mut self, reg: usize, kind: i32) {
         let mut d = self.read_byte().unwrap_or(0) as i32;
-        if kind == 94 && d == b'B' as i32 {
-            d = 0;
-        } else if (kind == 96 || kind == 9999) && d == b'A' as i32 {
+        if (kind == 94 && d == b'B' as i32)
+            || ((kind == 96 || kind == 9999) && d == b'A' as i32)
+        {
             d = 0;
         }
         if kind == 9999 {
