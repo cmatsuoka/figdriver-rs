@@ -420,10 +420,19 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Control>) -> Res
 fn split_by_newline(codes: &[i32]) -> Vec<&[i32]> {
     let mut segments = Vec::new();
     let mut start = 0;
-    for (i, &code) in codes.iter().enumerate() {
+    let mut i = 0;
+    while i < codes.len() {
+        let code = codes[i];
         if code == 10 || code == 13 {
             segments.push(&codes[start..i]);
-            start = i + 1;
+            if code == 13 && i + 1 < codes.len() && codes[i + 1] == 10 {
+                i += 2;
+            } else {
+                i += 1;
+            }
+            start = i;
+        } else {
+            i += 1;
         }
     }
     segments.push(&codes[start..]);
@@ -431,7 +440,7 @@ fn split_by_newline(codes: &[i32]) -> Vec<&[i32]> {
 }
 
 fn is_blank_codes(codes: &[i32]) -> bool {
-    codes.iter().all(|&c| c == 32 || c == 10 || c == 13)
+    codes.iter().all(|&c| c == 32 || c == 9 || c == 10 || c == 13)
 }
 
 fn is_blank_str(s: &str) -> bool {
@@ -443,10 +452,10 @@ fn write_tokens_codes(wr: &mut figdriver::Wrapper, codes: &[i32]) {
     let mut start = 0;
 
     while let Some((_i, &code)) = indices.next() {
-        let is_ws = code == 32 || code == 10 || code == 13;
+        let is_ws = code == 32 || code == 9 || code == 10 || code == 13;
         let is_space = code == 32;
-         while let Some(&(_j, &next_code)) = indices.peek() {
-            let next_ws = next_code == 32 || next_code == 10 || next_code == 13;
+        while let Some(&(_j, &next_code)) = indices.peek() {
+            let next_ws = next_code == 32 || next_code == 9 || next_code == 10 || next_code == 13;
             let next_space = next_code == 32;
             if next_ws != is_ws || (is_ws && next_space != is_space) {
                 break;
