@@ -152,7 +152,45 @@ Full_Layout per spec lines 743-828:
 - Full_Layout bit 128 → horizontal smush default
 - Full_Layout bits 1-32 → controlled smush rule selection
 
-## 10. Summary of Non-Compliant or Incomplete Features
+## 10. Naming Convention — COMPLIANT
+
+Per spec §8.3:
+
+> Program name must include capitalized "FIG"
+> Must have an incremental version number specific to its platform
+
+| Requirement | Status | Notes |
+|---|:---:|---|
+| Name includes "FIG" | ✔ | Project name is `FIGdriver-rs`, containing the required capitalized "FIG" |
+| Incremental version number | ✔ | Current version 0.2.0, tracked in Cargo.toml |
+
+### Notes on naming
+
+Per spec §8.4, a new program on a platform that already has a FIGdriver must use a
+distinct name. The project name `FIGdriver-rs` is distinct from the existing `figlet`
+distribution on Linux systems.
+
+## 11. Licensing — COMPLIANT
+
+Per spec §8.1 ("PROFIT"):
+
+| Requirement | Status | Notes |
+|---|:---:|---|
+| Free of charge via the Internet | ✔ | MIT-licensed, distributed on crates.io and GitHub |
+| No self-disabling | ✔ | No time-based or usage-based restrictions |
+| No donation requests | ✔ | |
+| No selling improved version | ✔ | MIT license permits free redistribution and modification |
+| Source code available | ✔ | Published at https://github.com/cmatsuoka/figdriver-rs |
+
+### Notes on licensing
+
+The project is licensed under the MIT license. The MIT license satisfies all requirements
+of the PROFIT clause: the software is freely available, the source code is public, and
+there are no mechanisms for self-disabling, donation requests, or paywalled improvements.
+Per spec §8.4, source code must be available to the public or at least to potential
+developers of later versions; this is satisfied by the public GitHub repository.
+
+## 12. Summary of Non-Compliant or Incomplete Features
 
 | Feature | Gap | Priority |
 |---|---|---|
