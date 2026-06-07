@@ -1,4 +1,5 @@
 use super::InputEncoding;
+use super::iso2022::Iso2022Decoder;
 
 /// Iterator that decodes raw bytes into character codes according to the given encoding.
 /// Yields one `i32` code per `next()` call.
@@ -8,15 +9,25 @@ pub struct EncodingDecoder<'a> {
     pos: usize,
     /// For HZ encoding: are we currently in two-byte mode?
     hz_two_byte: bool,
+    /// For ISO 2022 encoding: the stateful decoder.
+    iso2022_decoder: Option<Iso2022Decoder<'a>>,
 }
 
 impl<'a> EncodingDecoder<'a> {
-    pub fn new(bytes: &'a [u8], encoding: InputEncoding) -> Self {
+    pub fn new(bytes: &'a [u8], encoding: InputEncoding, iso2022: Option<&'a super::Iso2022Settings>) -> Self {
+        let iso2022_decoder = if encoding == InputEncoding::ISO2022 {
+            let mut decoder = iso2022.map(|s| s.build_decoder()).unwrap_or_default();
+            decoder.set_input(bytes);
+            Some(decoder)
+        } else {
+            None
+        };
         Self {
             bytes,
             encoding,
             pos: 0,
             hz_two_byte: false,
+            iso2022_decoder,
         }
     }
 }
@@ -32,6 +43,7 @@ impl Iterator for EncodingDecoder<'_> {
             InputEncoding::Dbcs     => self.next_dbcs(),
             InputEncoding::ShiftJIS => self.next_shiftjis(),
             InputEncoding::HZ       => self.next_hz(),
+            InputEncoding::ISO2022  => self.iso2022_decoder.as_mut().and_then(|d| d.next()),
         }
     }
 }
@@ -215,7 +227,7 @@ mod tests {
     use super::*;
 
     fn collect(bytes: &[u8], encoding: InputEncoding) -> Vec<i32> {
-        EncodingDecoder::new(bytes, encoding).collect()
+        EncodingDecoder::new(bytes, encoding, None).collect()
     }
 
     fn collect_utf8(bytes: &[u8]) -> Vec<i32> {

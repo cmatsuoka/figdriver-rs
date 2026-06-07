@@ -226,7 +226,7 @@ fn main() -> Result<(), Error> {
         if stdin_bytes.is_empty() {
             None
         } else {
-            Some(EncodingDecoder::new(&stdin_bytes, encoding).collect())
+            Some(EncodingDecoder::new(&stdin_bytes, encoding, control.as_ref().map(|c| c.iso2022_settings())).collect())
         }
     } else {
         None
@@ -444,7 +444,7 @@ fn is_ws_code(code: i32) -> bool {
 }
 
 fn is_blank_codes(codes: &[i32]) -> bool {
-    codes.iter().all(is_ws_code)
+    codes.iter().all(|&code| is_ws_code(code))
 }
 
 fn is_blank_str(s: &str) -> bool {
