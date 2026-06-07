@@ -134,7 +134,7 @@ fn handles_missing_directory() {
     let mut cmd = common::cmd_showfigfonts(&[]);
     cmd.arg("-d").arg("/nonexistent/path");
     let output = cmd.output().unwrap();
-    assert!(output.status.success());
+    assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("Unable to open directory"));
 }

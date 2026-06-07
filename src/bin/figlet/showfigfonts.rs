@@ -36,24 +36,19 @@ fn run_inner(args: &[OsString]) -> Result<(), String> {
 
     let remaining: Vec<OsString> = cli_args.finish();
 
-    for arg in &remaining {
-        let s = arg.to_string_lossy();
-        if s.starts_with('-') && s != "-" {
-            return Err(format!("Invalid flag: {}", s));
-        }
-    }
-
-    let mut iter = remaining.iter().filter_map(|s| s.to_str());
-    let word: Option<String> = iter.next().map(|s| s.to_string());
-
-    if iter.next().is_some() {
+    if remaining.len() > 1 {
         return Err(USAGE.to_string());
     }
+    if let Some(arg) = remaining.first() {
+        let s = arg.to_string_lossy();
+        if s.starts_with('-') {
+            return Err(USAGE.to_string());
+        }
+    }
+    let word = remaining.first().map(|s| s.to_string_lossy().into_owned());
 
-    let Ok(entries) = std::fs::read_dir(&font_dir) else {
-        eprintln!("Unable to open directory");
-        return Ok(());
-    };
+    let entries = std::fs::read_dir(&font_dir)
+        .map_err(|e| format!("Unable to open directory '{}': {}", font_dir, e))?;
 
     let mut flf_names: Vec<String> = Vec::new();
 

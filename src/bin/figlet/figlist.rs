@@ -37,12 +37,8 @@ fn run_inner(args: &[OsString]) -> Result<(), String> {
         return Err(USAGE.to_string());
     }
 
-    let Ok(entries) = std::fs::read_dir(&font_dir) else {
-        println!("Default font: N/A");
-        println!("Font directory: {}", font_dir);
-        println!("Unable to open directory");
-        return Ok(());
-    };
+    let entries = std::fs::read_dir(&font_dir)
+        .map_err(|e| format!("Unable to open directory '{}': {}", font_dir, e))?;
 
     let mut flf_names: Vec<String> = Vec::new();
     let mut flc_names: Vec<String> = Vec::new();
@@ -55,8 +51,8 @@ fn run_inner(args: &[OsString]) -> Result<(), String> {
         };
         if name_str.ends_with(".flf") || name_str.ends_with(".tlf") {
             flf_names.push(strip_font_suffix(&name_str).to_string());
-        } else if name_str.ends_with(".flc") {
-            flc_names.push(name_str.trim_end_matches(".flc").to_string());
+        } else if let Some(stripped) = name_str.strip_suffix(".flc") {
+            flc_names.push(stripped.to_string());
         }
     }
 

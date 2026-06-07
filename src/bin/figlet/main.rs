@@ -65,8 +65,9 @@ impl From<io::Error> for Error {
 fn main() {
     let args: Vec<OsString> = std::env::args_os().collect();
     let name = args.first()
-        .and_then(|a| a.to_str())
-        .and_then(|s| s.split('/').next_back())
+        .map(std::path::Path::new)
+        .and_then(|p| p.file_name())
+        .and_then(|s| s.to_str())
         .unwrap_or("figlet");
 
     match name {

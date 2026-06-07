@@ -61,6 +61,10 @@ This can be overridden with
 .TP
 .I /usr/share/figlet
 Default directory searched for fonts.
+.SH NOTES
+Unlike the reference showfigfonts, which returns exit status 0 when the
+font directory cannot be opened, this implementation returns exit status 1
+and prints an error message to stderr.
 .SH BUGS
 Report bugs at <https://github.com/cmatsuoka/figdriver-rs/issues>.
 .SH AUTHORS

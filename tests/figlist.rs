@@ -108,9 +108,9 @@ fn respects_figlet_fontdir_env() {
 fn handles_missing_directory() {
     let mut cmd = common::cmd_figlist(&["-d", "/nonexistent/path"]);
     let output = cmd.output().unwrap();
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Unable to open directory"));
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Unable to open directory"));
 }
 
 #[test]
