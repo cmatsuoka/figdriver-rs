@@ -38,7 +38,7 @@ fn help_flag_long() {
 
 #[test]
 fn renders_all_fonts() {
-    let mut cmd = common::cmd_showfigfonts(&[]);
+    let mut cmd = common::cmd_showfigfonts(&["-d", "fonts"]);
     let output = cmd.output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -49,7 +49,7 @@ fn renders_all_fonts() {
 
 #[test]
 fn renders_fonts_sorted() {
-    let mut cmd = common::cmd_showfigfonts(&[]);
+    let mut cmd = common::cmd_showfigfonts(&["-d", "fonts"]);
     let output = cmd.output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -97,7 +97,7 @@ fn uses_font_name_as_word() {
 
 #[test]
 fn accepts_word_argument() {
-    let mut cmd = common::cmd_showfigfonts(&["Hi"]);
+    let mut cmd = common::cmd_showfigfonts(&["-d", "fonts", "Hi"]);
     let output = cmd.output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
