@@ -48,6 +48,14 @@ required-features = ["cli"]
 name = "whitespace_tokenization"
 required-features = ["cli"]
 
+[[test]]
+name = "figlist"
+required-features = ["cli"]
+
+[[test]]
+name = "showfigfonts"
+required-features = ["cli"]
+
 [features]
 default = []
 cli = ["dep:pico-args", "dep:terminal_size"]

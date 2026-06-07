@@ -70,9 +70,9 @@ fn main() {
         .unwrap_or("figlet");
 
     match name {
-        "figlist"      => figlist::run(args),
-        "showfigfonts" => showfigfonts::run(args),
-        _              => { if let Err(e) = run_figlet() { eprintln!("{}", e); std::process::exit(1); } }
+        n if n.contains("showfigfonts") => showfigfonts::run(args),
+        n if n.contains("figlist")      => figlist::run(args),
+        _                               => { if let Err(e) = run_figlet() { eprintln!("{}", e); std::process::exit(1); } }
     }
 }
 

@@ -10,7 +10,10 @@ const USAGE: &str = "Usage: showfigfonts [options] [word]
   -v, --version        display version information and exit";
 
 pub fn run(args: Vec<OsString>) {
-    let _ = run_inner(&args);
+    if let Err(e) = run_inner(&args) {
+        eprintln!("{}", e);
+        std::process::exit(1);
+    }
 }
 
 fn run_inner(args: &[OsString]) -> Result<(), String> {
@@ -32,6 +35,13 @@ fn run_inner(args: &[OsString]) -> Result<(), String> {
         .unwrap_or(FONT_DIR.to_string());
 
     let remaining: Vec<OsString> = cli_args.finish();
+
+    for arg in &remaining {
+        let s = arg.to_string_lossy();
+        if s.starts_with('-') && s != "-" {
+            return Err(format!("Invalid flag: {}", s));
+        }
+    }
 
     let mut iter = remaining.iter().filter_map(|s| s.to_str());
     let word: Option<String> = iter.next().map(|s| s.to_string());
@@ -94,12 +104,18 @@ fn render_font(font_dir: &str, font_name: &str, word: &str) {
 
     let font_path = match font_path {
         Some(p) => p,
-        None => return,
+        None => {
+            eprintln!("Font not found: {}", font_name);
+            return;
+        }
     };
 
     let font = match figdriver::FIGfont::from_path(&font_path) {
         Ok(f) => f,
-        Err(_) => return,
+        Err(e) => {
+            eprintln!("Error reading font {}: {}", font_name, e);
+            return;
+        }
     };
 
     let sm = figdriver::Smusher::builder(&font)

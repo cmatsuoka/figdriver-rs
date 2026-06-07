@@ -1,5 +1,4 @@
 use std::ffi::OsString;
-use std::path::PathBuf;
 
 use super::{cli, strip_font_suffix, FONT_DIR};
 
@@ -9,7 +8,10 @@ const USAGE: &str = "Usage: figlist [options]
   -v, --version        display version information and exit";
 
 pub fn run(args: Vec<OsString>) {
-    let _ = run_inner(&args);
+    if let Err(e) = run_inner(&args) {
+        eprintln!("{}", e);
+        std::process::exit(1);
+    }
 }
 
 fn run_inner(args: &[OsString]) -> Result<(), String> {
@@ -35,28 +37,9 @@ fn run_inner(args: &[OsString]) -> Result<(), String> {
         return Err(USAGE.to_string());
     }
 
-    let default_font_path = PathBuf::from(&font_dir).join("standard.flf");
-    let default_font_exists = default_font_path.exists();
-    let default_font_name: String = if default_font_exists {
-        "standard".to_string()
-    } else {
-        let mut found = None;
-        if let Ok(entries) = std::fs::read_dir(&font_dir) {
-            for entry in entries.filter_map(|e| e.ok()) {
-                let name = entry.file_name().to_string_lossy().to_string();
-                if name.ends_with(".flf") || name.ends_with(".tlf") {
-                    found.get_or_insert_with(|| strip_font_suffix(&name).to_string());
-                    break;
-                }
-            }
-        }
-        found.unwrap_or("N/A".to_string())
-    };
-
-    println!("Default font: {}", default_font_name);
-    println!("Font directory: {}", font_dir);
-
     let Ok(entries) = std::fs::read_dir(&font_dir) else {
+        println!("Default font: N/A");
+        println!("Font directory: {}", font_dir);
         println!("Unable to open directory");
         return Ok(());
     };
@@ -79,6 +62,17 @@ fn run_inner(args: &[OsString]) -> Result<(), String> {
 
     flf_names.sort();
     flc_names.sort();
+
+    let default_font_name = if flf_names.contains(&"standard".to_string()) {
+        "standard".to_string()
+    } else if let Some(first) = flf_names.first() {
+        first.clone()
+    } else {
+        "N/A".to_string()
+    };
+
+    println!("Default font: {}", default_font_name);
+    println!("Font directory: {}", font_dir);
 
     if flf_names.is_empty() {
         println!("No figlet fonts in this directory");
