@@ -1,6 +1,6 @@
 /// ISO 2022 character set state, accumulated from "g" commands in control files.
 #[derive(Debug, Clone)]
-pub struct Iso2022Settings {
+pub(super) struct Iso2022Settings {
     pub(super) g_sets: [Option<Iso2022GSet>; 4],
     pub(super) left_half: usize,
     pub(super) right_half: usize,
@@ -28,7 +28,7 @@ impl Default for Iso2022Settings {
 }
 
 impl Iso2022Settings {
-    pub fn build_decoder(&self) -> Iso2022Decoder<'_> {
+    pub(super) fn build_decoder(&self) -> Iso2022Decoder<'_> {
         let mut gn = [0i32; 4];
         let mut gndbl = [false; 4];
 
@@ -55,7 +55,7 @@ impl Iso2022Settings {
 ///
 /// Consumes raw bytes, intercepts ESC sequences to switch G-registers,
 /// and yields one `i32` character code per call.
-pub struct Iso2022Decoder<'a> {
+pub(super) struct Iso2022Decoder<'a> {
     bytes: &'a [u8],
     pos: usize,
     gn: [i32; 4],
@@ -80,13 +80,13 @@ impl Default for Iso2022Decoder<'_> {
 }
 
 impl<'a> Iso2022Decoder<'a> {
-    pub fn set_input(&mut self, bytes: &'a [u8]) {
+    pub(super) fn set_input(&mut self, bytes: &'a [u8]) {
         self.bytes = bytes;
         self.pos = 0;
     }
 
     /// Return the next character code from the input stream.
-    pub fn next(&mut self) -> Option<i32> {
+    pub(super) fn next(&mut self) -> Option<i32> {
         if self.pos >= self.bytes.len() {
             return None;
         }

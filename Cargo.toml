@@ -13,8 +13,8 @@ include = [
         "Cargo.lock",
         "README.md",
         "LICENSE",
-        "src",
-        "tests",
+        "src/**",
+        "tests/**",
         "fonts/small.flf",
         "fonts/banner.flf",
         "fonts/standard.flf",
@@ -25,7 +25,7 @@ include = [
         "fonts/646-de.flc",
         "fonts/jis0201.flc",
 ]
-categories = ["text-processing"]
+categories = ["text-processing", "command-line-utilities"]
 
 [lib]
 name = "figdriver"

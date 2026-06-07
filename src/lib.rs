@@ -4,10 +4,14 @@ use std::io;
 use std::num;
 use std::path::PathBuf;
 
-pub use self::figfont::*;
+pub use self::figfont::{
+    FIGchar, FIGfont,
+    SMUSH_ENABLE, SMUSH_EQUAL, SMUSH_HARDBLANK, SMUSH_HIERARCHY,
+    SMUSH_KERN, SMUSH_PAIR, SMUSH_UNDERLINE, SMUSH_BIGX,
+};
 pub use self::wrapper::{Align, Wrapper};
 pub use self::smusher::{LayoutMode, Smusher, SmusherBuilder};
-pub use self::control::{Control, EncodingDecoder, Flc, InputEncoding};
+pub use self::control::{Control, Flc, InputEncoding};
 
 mod control;
 mod figfont;
@@ -15,15 +19,27 @@ mod wrapper;
 mod smusher;
 mod zip;
 
+/// Errors produced by figdriver operations.
+///
+/// This enum covers font loading, I/O, parsing, control file handling,
+/// and wrapper rendering errors.
 #[derive(Debug)]
 pub enum Error {
+    /// Malformed or unsupported font file format.
     FontFormat(&'static str),
+    /// I/O error from reading a file.
     Io(io::Error),
+    /// Integer parsing error from a font header value.
     Parse(num::ParseIntError),
+    /// Invalid FIGchar code tag value.
     CodeTag(i32),
+    /// The wrapper's output line is full and cannot accept more characters.
     LineFull,
+    /// Font file was not found at the given path.
     FontNotFound(PathBuf),
+    /// Malformed or unsupported control file format.
     ControlFormat(&'static str),
+    /// A control file mapping has mismatched range sizes.
     ControlRangeMismatch,
 }
 
