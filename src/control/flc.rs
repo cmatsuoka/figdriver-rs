@@ -660,7 +660,7 @@ fn parse_g_command(line: &str, iso2022: &mut ParsedIso2022Settings) -> Result<()
     let g_keyword = parts[0];
     let rest = g_keyword.strip_prefix('g').unwrap_or("");
 
-   if rest == "L" || rest == "R" {
+    if rest == "L" || rest == "R" {
         let g_reg: usize = parts[1].parse().map_err(|_| Error::ControlFormat("invalid g register"))?;
         if !(0..=3).contains(&g_reg) {
             return Err(Error::ControlFormat("invalid g register"));

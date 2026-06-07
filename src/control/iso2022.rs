@@ -188,9 +188,9 @@ impl<'a> Iso2022Decoder<'a> {
         if kind == 9999 {
             self.gn[reg] = d << 16;
             self.gndbl[reg] = true;
-          } else if kind == 96 {
-                // 0x80 flag marks 96-char sets in output codes (matches figlet-2.2.5)
-                self.gn[reg] = (d << 16) | 0x80;
+        } else if kind == 96 {
+            // 0x80 flag marks 96-char sets in output codes (matches figlet-2.2.5)
+            self.gn[reg] = (d << 16) | 0x80;
             self.gndbl[reg] = false;
         } else {
             self.gn[reg] = d << 16;
