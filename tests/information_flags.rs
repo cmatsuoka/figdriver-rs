@@ -8,7 +8,7 @@ fn version_flag() {
         let output = cmd.output().unwrap();
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert_eq!(stdout.trim(), format!("figlet {}", env!("CARGO_PKG_VERSION")));
+        assert_eq!(stdout.trim(), format!("FIGdriver-rs {}", env!("CARGO_PKG_VERSION")));
     }
 }
 
