@@ -1,0 +1,74 @@
+.TH SHOWFIGFONTS 1 "June 2026" "FIGdriver\-rs 0.2" "User Commands"
+.SH NAME
+showfigfonts \- display a sample rendering of each available FIGfont
+.SH SYNOPSIS
+.B showfigfonts
+[options] [word]
+.SH DESCRIPTION
+.B showfigfonts
+scans the configured font directory for FIGfont files and renders a
+sample line using each font. By default, the sample line is the font's
+own name. A custom word can be provided to render the same text across
+all fonts for comparison purposes.
+.SH OPTIONS
+.B showfigfonts
+processes options from left to right; when conflicting options are given,
+the last one takes effect.
+.TP
+.B "\-d, \-\-fontdir"
+.IR fontdirectory
+Set the font search directory. Defaults to
+.IR /usr/share/figlet .
+.TP
+.B "\-v, \-\-version"
+Print the version and exit.
+.TP
+.B "\-h, \-\-help"
+Print usage information and exit.
+.SH ARGUMENTS
+.TP
+.B word
+A single word to render with each font. If omitted, each font's own
+name is rendered.
+.SH EXAMPLES
+.PP
+Show each font rendering its own name:
+.RS
+.nf
+showfigfonts
+.RE
+.PP
+Render the word \fBtest\fR in every available font:
+.RS
+.nf
+showfigfonts test
+.RE
+.PP
+Scan a custom font directory:
+.RS
+.nf
+showfigfonts \-d /usr/share/fonts/figlet
+.RE
+.SH ENVIRONMENT
+.TP
+.B FIGLET_FONTDIR
+If set, use the given directory as the default font search directory, instead
+of
+.IR /usr/share/figlet .
+This can be overridden with
+.BR \-d .
+.SH FILES
+.TP
+.I /usr/share/figlet
+Default directory searched for fonts.
+.SH NOTES
+Unlike the reference showfigfonts, which returns exit status 0 when the
+font directory cannot be opened, this implementation returns exit status 1
+and prints an error message to stderr.
+.SH BUGS
+Report bugs at <https://github.com/cmatsuoka/figdriver-rs/issues>.
+.SH AUTHORS
+This
+.I showfigfonts
+implementation is written by Claudio Matsuoka, based on the original
+FIGlet project by Glenn Chappell, Ian Chai, and John Cowan.

@@ -17,6 +17,8 @@ jobs:
       - run: cargo run --example hello
       - run: cargo run --example showfonts
       - run: echo "Hello CI" | cargo run --example simple
+      - run: cargo build --features cli
+      - run: target/debug/figlet --version | grep "^figlet .* (FIGdriver-rs)"
 
   lint:
     runs-on: ubuntu-latest

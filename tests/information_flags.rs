@@ -8,7 +8,7 @@ fn version_flag() {
         let output = cmd.output().unwrap();
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert_eq!(stdout.trim(), format!("FIGdriver-rs {}", env!("CARGO_PKG_VERSION")));
+        assert_eq!(stdout.trim(), format!("figlet {} (FIGdriver-rs)", env!("CARGO_PKG_VERSION")));
     }
 }
 
@@ -19,7 +19,7 @@ fn infocode_zero_shows_copyright_and_version() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.lines().collect();
-    assert!(lines[0].starts_with("FIGdriver-rs Copyright"));
+    assert!(lines[0].starts_with("FIGdriver-rs Copyright "));
     assert_eq!(lines[1], format!("Version: {}", env!("CARGO_PKG_VERSION")));
 }
 

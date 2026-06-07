@@ -2,6 +2,7 @@
 
 use std::io::Write;
 use std::process::{Command, Stdio};
+use std::sync::OnceLock;
 
 /// Create a figlet command with the given arguments.
 /// Automatically includes `-d fonts` for font directory.
@@ -10,6 +11,59 @@ pub fn cmd_figlet(args: &[&str]) -> Command {
     cmd.arg("-d").arg("fonts");
     cmd.args(args);
     cmd
+}
+
+/// Create a figlist command by running the figlet binary via a named link.
+/// Uses symlinks on Unix, hard links on Windows (avoids admin privileges).
+/// The binary dispatches based on executable name.
+pub fn cmd_figlist(args: &[&str]) -> Command {
+    let link = figlist_link();
+    let mut cmd = Command::new(&link);
+    cmd.args(args);
+    cmd
+}
+
+static FIGLIST_LINK: OnceLock<std::path::PathBuf> = OnceLock::new();
+
+fn figlist_link() -> std::path::PathBuf {
+    FIGLIST_LINK.get_or_init(|| {
+        let out_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/test_links");
+        std::fs::create_dir_all(&out_dir).unwrap();
+        let link = out_dir.join("figlist");
+        let bin_path = std::path::PathBuf::from(env!("CARGO_BIN_EXE_figlet"));
+        let _ = std::fs::remove_file(&link);
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&bin_path, &link).unwrap();
+        #[cfg(windows)]
+        std::fs::hard_link(&bin_path, &link).unwrap();
+        link
+    }).clone()
+}
+
+/// Create a showfigfonts command by running the figlet binary via a named link.
+/// Uses symlinks on Unix, hard links on Windows (avoids admin privileges).
+pub fn cmd_showfigfonts(args: &[&str]) -> Command {
+    let link = showfigfonts_link();
+    let mut cmd = Command::new(&link);
+    cmd.args(args);
+    cmd
+}
+
+static SHOWFIGFONTS_LINK: OnceLock<std::path::PathBuf> = OnceLock::new();
+
+fn showfigfonts_link() -> std::path::PathBuf {
+    SHOWFIGFONTS_LINK.get_or_init(|| {
+        let out_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/test_links");
+        std::fs::create_dir_all(&out_dir).unwrap();
+        let link = out_dir.join("showfigfonts");
+        let bin_path = std::path::PathBuf::from(env!("CARGO_BIN_EXE_figlet"));
+        let _ = std::fs::remove_file(&link);
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&bin_path, &link).unwrap();
+        #[cfg(windows)]
+        std::fs::hard_link(&bin_path, &link).unwrap();
+        link
+    }).clone()
 }
 
 /// Assert that the command succeeded, printing stdout and stderr on failure.
