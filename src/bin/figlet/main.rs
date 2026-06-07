@@ -64,7 +64,7 @@ fn main() -> Result<(), Error> {
     let mut args = cli::Args::from_env();
 
     if args.contains(["-v", "--version"]) {
-        println!("figlet {}", env!("CARGO_PKG_VERSION"));
+        println!("FIGdriver-rs {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
 
