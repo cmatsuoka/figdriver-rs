@@ -3,7 +3,19 @@ use std::io::{BufRead, BufReader};
 use std::path::Path;
 use crate::Error;
 use crate::zip::{is_zip, decompress_zip};
+use super::decoder::EncodingDecoder;
 use super::iso2022::{Iso2022GSet, Iso2022Settings};
+
+impl InputEncoding {
+    /// Decode raw bytes into character codes using this encoding.
+    ///
+    /// This is a simple decoding path that does not handle ISO 2022 control
+    /// sequences. For input that may contain ISO 2022 escapes, use
+    /// [`Control::decode_bytes`] instead.
+    pub fn decode_bytes(self, bytes: &[u8]) -> Vec<i32> {
+        EncodingDecoder::new(bytes, self, None).collect()
+    }
+}
 
 /// Input encoding mode for multi-byte character processing.
 /// Determines how the FIGdriver interprets multi-byte character input.
@@ -250,7 +262,7 @@ impl Flc {
     }
 
     /// Get the accumulated ISO 2022 settings as decoder configuration.
-    pub fn iso2022_settings(&self) -> Iso2022Settings {
+    pub(super) fn iso2022_settings(&self) -> Iso2022Settings {
         self.iso2022.to_decoder_settings()
     }
 }
@@ -307,9 +319,9 @@ impl Control {
         self.encoding
     }
 
-    /// Get ISO 2022 settings from the last control file in the pipeline.
-    pub fn iso2022_settings(&self) -> &Iso2022Settings {
-        &self.iso2022
+    /// Decode raw bytes into character codes using the control's encoding and ISO 2022 settings.
+    pub fn decode_bytes(&self, bytes: &[u8]) -> Vec<i32> {
+        EncodingDecoder::new(bytes, self.encoding, Some(&self.iso2022)).collect()
     }
 }
 

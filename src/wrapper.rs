@@ -2,10 +2,14 @@ use crate::Error;
 use crate::Smusher;
 use crate::smusher::display_width;
 
+/// Horizontal alignment of rendered ASCII-art output within the wrapper width.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Align {
+    /// Left-align text; padding is added to the right.
     Left,
+    /// Right-align text; padding is added to the left.
     Right,
+    /// Center text; padding is distributed evenly on both sides.
     Center,
 }
 

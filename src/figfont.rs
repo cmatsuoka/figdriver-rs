@@ -186,6 +186,11 @@ fn i32_from_str(s: &str) -> Result<i32, Error> {
 }
 
 
+/// A single FIGfont character, represented as a set of equally-wide text lines.
+///
+/// Each line is a row of the character glyph. The width in characters is
+/// determined by the length of the first line; all subsequent lines must
+/// have the same character width.
 #[derive(Debug)]
 pub struct FIGchar {
     lines: Vec<String>,

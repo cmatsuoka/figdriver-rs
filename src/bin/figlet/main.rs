@@ -3,7 +3,6 @@ use std::fmt;
 use std::io::{self, BufRead, Read};
 use std::path::{Path, PathBuf, is_separator};
 use figdriver::Control;
-use figdriver::EncodingDecoder;
 
 mod cli;
 mod figlist;
@@ -243,7 +242,10 @@ fn run_figlet() -> Result<(), Error> {
         if stdin_bytes.is_empty() {
             None
         } else {
-            Some(EncodingDecoder::new(&stdin_bytes, encoding, control.as_ref().map(|c| c.iso2022_settings())).collect())
+            match &control {
+                Some(ctrl) => Some(ctrl.decode_bytes(&stdin_bytes)),
+                None => Some(encoding.decode_bytes(&stdin_bytes)),
+            }
         }
     } else {
         None

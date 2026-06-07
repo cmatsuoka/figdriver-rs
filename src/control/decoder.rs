@@ -1,9 +1,9 @@
 use super::InputEncoding;
-use super::iso2022::Iso2022Decoder;
+use super::iso2022::{Iso2022Decoder, Iso2022Settings};
 
 /// Iterator that decodes raw bytes into character codes according to the given encoding.
 /// Yields one `i32` code per `next()` call.
-pub struct EncodingDecoder<'a> {
+pub(super) struct EncodingDecoder<'a> {
     bytes: &'a [u8],
     encoding: InputEncoding,
     pos: usize,
@@ -14,7 +14,7 @@ pub struct EncodingDecoder<'a> {
 }
 
 impl<'a> EncodingDecoder<'a> {
-    pub fn new(bytes: &'a [u8], encoding: InputEncoding, iso2022: Option<&'a super::Iso2022Settings>) -> Self {
+    pub(super) fn new(bytes: &'a [u8], encoding: InputEncoding, iso2022: Option<&'a Iso2022Settings>) -> Self {
         let iso2022_decoder = if encoding == InputEncoding::ISO2022 {
             let mut decoder = iso2022.map(|s| s.build_decoder()).unwrap_or_default();
             decoder.set_input(bytes);
