@@ -8,6 +8,23 @@ repository = "https://github.com/cmatsuoka/figdriver-rs"
 license = "MIT"
 keywords = ["ascii", "ascii-art", "terminal"]
 readme = "README.md"
+include = [
+        "Cargo.toml",
+        "Cargo.lock",
+        "README.md",
+        "LICENSE",
+        "src",
+        "tests",
+        "fonts/small.flf",
+        "fonts/banner.flf",
+        "fonts/standard.flf",
+        "fonts/frango.flc",
+        "fonts/upper.flc",
+        "fonts/utf8.flc",
+        "fonts/hz.flc",
+        "fonts/646-de.flc",
+        "fonts/jis0201.flc",
+]
 categories = ["text-processing"]
 
 [lib]
