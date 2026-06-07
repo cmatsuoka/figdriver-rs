@@ -40,7 +40,7 @@ Or build locally:
 cargo build --release --features cli
 ```
 
-The resulting binary is `target/release/figlet`. This is a multi-entry binary, it will also act as `figlist` or
+The resulting binary is `target/release/figlet`. This is a multicall binary; it will also act as `figlist` or
 `showfigfonts` if invoked as such.
 
 ## Using the library
