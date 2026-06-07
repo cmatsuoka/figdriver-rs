@@ -17,6 +17,18 @@ impl Args {
         }
     }
 
+    /// Construct from a pre-collected args vector (first element is program name and will be stripped).
+    pub fn from_vec(args: Vec<OsString>) -> Self {
+        let mut args = args;
+        if !args.is_empty() {
+            let _progname = args.remove(0);
+        }
+        Self {
+            args: args.clone(),
+            inner: Some(pico_args::Arguments::from_vec(args)),
+        }
+    }
+
     /// Returns the value whose alias appeared last in the original args.
     /// Handles combined short flags (e.g., `-cp`) and consumes matched flags.
     pub fn last_of<'a, V: Clone>(&mut self, groups: &[(V, &[&'a str])]) -> Option<V>

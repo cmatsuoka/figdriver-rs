@@ -36,7 +36,7 @@ The standard states (line 1545):
 ### 1.2 Control file processing — COMPLIANT
 
 | Feature | Status | Notes |
-|---|---|---|
+|---|:---:|---|
 | `flc2a` signature | ✔ | Optional, accepted if present |
 | Comment lines (`#` prefix) | ✔ | Skipped during parsing |
 | Blank lines | ✔ | Skipped during parsing |
@@ -56,7 +56,7 @@ The standard states (line 1545):
 | Latin-1 encoding | ✔ | Decoder implemented (`EncodingDecoder`) |
 | `g` command (ISO 2022 G-register) | ✔ | Parsed, stored, and decoder implemented (`Iso2022Decoder`) |
 
-## 2. Horizontal Layout Modes
+## 2. Horizontal Layout Modes — COMPLIANT
 
 All horizontal layout modes are fully implemented.
 
@@ -67,7 +67,7 @@ All horizontal layout modes are fully implemented.
 | Smushing (controlled) | 128 + rule bits | ✔ |
 | Smushing (universal) | 128 (no rule bits) | ✔ |
 
-## 3. Horizontal Smushing Rules
+## 3. Horizontal Smushing Rules — COMPLIANT
 
 All six horizontal smushing rules are implemented.
 
@@ -132,7 +132,7 @@ Per spec lines 1606-1634:
 Per spec lines 1654-1671:
 
 | Feature | Status | Notes |
-|---|---|---|
+|---|:---:|---|
 | ZIP archive detection | ✔ | PK magic bytes |
 | Deflate decompression | ✔ | |
 | Single-entry handling | ✔ | Subsequent entries ignored |
@@ -145,7 +145,7 @@ The implementation correctly interprets the relationship between Old_Layout and
 Full_Layout per spec lines 743-828:
 
 | Feature | Status | Notes |
-|---|---|---|
+|---|:---:|---|
 | Old_Layout `-1` | ✔ | full width |
 | Old_Layout `0`  | ✔ | fitting (or universal smush when Full_Layout bit 128 is set with no rule bits) |
 | Old_Layout positive | ✔ | controlled smush with specified rule bits |

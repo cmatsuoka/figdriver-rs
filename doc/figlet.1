@@ -1,4 +1,4 @@
-.TH FIGLET 1 "June 2026" "figdriver\-rs 0.2.0" "User Commands"
+.TH FIGLET 1 "June 2026" "FIGdriver\-rs 0.2" "User Commands"
 .SH NAME
 figlet \- render text as ASCII art banners using FIGfont files
 .SH SYNOPSIS
@@ -8,7 +8,7 @@ figlet \- render text as ASCII art banners using FIGfont files
 .B figlet
 is a command\-line tool that renders text as large ASCII art banners using
 FIGfont (\fB.flf\fR) or TOIlet (\fB.tlf\fR) font files. It is a Rust
-implementation of the FIGfont 2 renderer, powered by the figdriver library.
+implementation of the FIGfont 2 renderer, powered by the FIGdriver library.
 .PP
 The tool supports multiple layout modes (kerning, smushing, overlap, full
 width), bidirectional text (left\-to\-right and right\-to\-left), word wrapping
@@ -31,7 +31,7 @@ suffix may be omitted. The font is looked up in the font directory set by
 \fB\-d\fR. Defaults to
 .IR standard.flf .
 .TP
-.B "\-d, \-\-dir"
+.B "\-d, \-\-fontdir"
 .IR fontdirectory
 Set the font search directory. Defaults to
 .IR /usr/share/figlet .
@@ -142,7 +142,7 @@ figlet Hello
 Render text with a specific font and center\-aligned output:
 .RS
 .nf
-echo "figdriver\-rs" | figlet \-c \-f banner
+echo "FIGdriver\-rs" | figlet \-c \-f slant
 .RE
 .PP
 Use a custom font and control file:

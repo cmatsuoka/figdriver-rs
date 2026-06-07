@@ -6,6 +6,8 @@ use figdriver::Control;
 use figdriver::EncodingDecoder;
 
 mod cli;
+mod figlist;
+mod showfigfonts;
 
 const FONT_DIR     : &str = "/usr/share/figlet";
 const DEFAULT_FONT : &str = "standard.flf";
@@ -60,19 +62,33 @@ impl From<io::Error> for Error {
     }
 }
 
-fn main() -> Result<(), Error> {
+fn main() {
+    let args: Vec<OsString> = std::env::args_os().collect();
+    let name = args.first()
+        .and_then(|a| a.to_str())
+        .and_then(|s| s.split('/').next_back())
+        .unwrap_or("figlet");
+
+    match name {
+        "figlist"      => figlist::run(args),
+        "showfigfonts" => showfigfonts::run(args),
+        _              => { if let Err(e) = run_figlet() { eprintln!("{}", e); std::process::exit(1); } }
+    }
+}
+
+fn run_figlet() -> Result<(), Error> {
     let mut args = cli::Args::from_env();
 
     if args.contains(["-v", "--version"]) {
-        println!("FIGdriver-rs {}", env!("CARGO_PKG_VERSION"));
+        println!("figlet {} (FIGdriver-rs)", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
 
     if args.contains(["-h", "--help"]) {
-        println!("Usage: figlet [options] message
+  println!("Usage: figlet [options] message
   -C, --control <file>     specify a control file (can be repeated)
   -c, --center             center the output horizontally
-  -d, --dir <dir>          set the default font directory
+  -d, --fontdir <dir>      set the default font directory
   -f, --font <name>        specify the figfont to use
   -h, --help               display usage information and exit
   -I, --infocode <num>     print info for infocode (0-5) and exit
@@ -99,7 +115,7 @@ fn main() -> Result<(), Error> {
     let infocode: Option<i32> = args.opt_value_from_str::<i32>(["-I", "--infocode"])
         .map_err(|e| Error::Cli(e.to_string()))?;
 
-    let font_dir = args.opt_value_from_str::<String>(["-d", "--dir"])
+    let font_dir = args.opt_value_from_str::<String>(["-d", "--fontdir"])
         .map_err(|e| Error::Cli(e.to_string()))?
         .or_else(|| std::env::var("FIGLET_FONTDIR").ok())
         .unwrap_or(FONT_DIR.to_string());
@@ -232,7 +248,7 @@ fn main() -> Result<(), Error> {
         None
     };
 
-    run(&fontpath, &msg, &RunConfig {
+    run_figlet_render(&fontpath, &msg, &RunConfig {
             layout_mode,
             print_dir,
             width,
@@ -266,7 +282,7 @@ fn print_version_int() {
     println!("{}", major * 10000 + minor * 100 + patch);
 }
 
-fn strip_font_suffix(name: &str) -> &str {
+pub fn strip_font_suffix(name: &str) -> &str {
     name.strip_suffix(".flf")
         .or_else(|| name.strip_suffix(".tlf"))
         .unwrap_or(name)
@@ -344,7 +360,7 @@ struct RunConfig {
     codes: Option<Vec<i32>>,
 }
 
-fn run(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Control>) -> Result<(), figdriver::Error> {
+fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Control>) -> Result<(), figdriver::Error> {
     if !path.exists() {
         return Err(figdriver::Error::FontNotFound(path.to_path_buf()));
     }
