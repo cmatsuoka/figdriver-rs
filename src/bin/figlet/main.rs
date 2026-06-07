@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 use std::fmt;
-use std::io::{self, BufRead, Read};
+use std::io::{self, BufRead};
 use std::path::{Path, PathBuf, is_separator};
 use figdriver::Control;
 
@@ -235,29 +235,12 @@ fn run_figlet() -> Result<(), Error> {
         Some(Control::from_paths(&control_paths)?)
     };
 
-    let codes = if msg.is_empty() {
-        let encoding = control.as_ref().map_or(figdriver::InputEncoding::Default, |c| c.encoding());
-        let mut stdin_bytes = Vec::new();
-        io::stdin().read_to_end(&mut stdin_bytes)?;
-        if stdin_bytes.is_empty() {
-            None
-        } else {
-            match &control {
-                Some(ctrl) => Some(ctrl.decode_bytes(&stdin_bytes)),
-                None => Some(encoding.decode_bytes(&stdin_bytes)),
-            }
-        }
-    } else {
-        None
-    };
-
     run_figlet_render(&fontpath, &msg, &RunConfig {
             layout_mode,
             print_dir,
             width,
             paragraph,
             justify,
-            codes,
         }, control)?;
     Ok(())
 }
@@ -360,7 +343,6 @@ struct RunConfig {
     width: usize,
     paragraph: bool,
     justify: Justify,
-    codes: Option<Vec<i32>>,
 }
 
 fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Control>) -> Result<(), figdriver::Error> {
@@ -399,21 +381,35 @@ fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Co
     // "allow lines up to N-1 characters" rather than N characters.
     let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1, justify_align);
 
-    if let Some(ref codes) = cfg.codes {
+    if !msg.is_empty() {
+        write_line(&mut wr, msg);
+    } else if control.is_some() {
+        let ctrl = control.as_ref().unwrap();
+        let mut input = io::BufReader::new(io::stdin());
+        let mut buf = Vec::new();
         if cfg.paragraph {
-            for segment in split_by_newline(codes) {
-                write_paragraph_codes(&mut wr, segment);
+            loop {
+                buf.clear();
+                let n = input.read_until(b'\n', &mut buf)?;
+                if n == 0 { break; }
+                while buf.ends_with(b"\n") || buf.ends_with(b"\r") {
+                    buf.pop();
+                }
+                let codes = ctrl.decode_bytes(&buf);
+                write_paragraph_codes(&mut wr, &codes);
             }
             if !wr.is_empty() {
                 print_output(&wr.get());
             }
         } else {
-            for segment in split_by_newline(codes) {
-                write_line_codes(&mut wr, segment);
+            loop {
+                buf.clear();
+                let n = input.read_until(b'\n', &mut buf)?;
+                if n == 0 { break; }
+                let codes = ctrl.decode_bytes(&buf);
+                write_line_codes(&mut wr, &codes);
             }
         }
-    } else if !msg.is_empty() {
-        write_line(&mut wr, msg);
     } else {
         let mut input = io::BufReader::new(io::stdin());
         if cfg.paragraph {
@@ -434,28 +430,6 @@ fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Co
     }
 
     Ok(())
-}
-
-fn split_by_newline(codes: &[i32]) -> Vec<&[i32]> {
-    let mut segments = Vec::new();
-    let mut start = 0;
-    let mut i = 0;
-    while i < codes.len() {
-        let code = codes[i];
-        if code == 10 || code == 13 {
-            segments.push(&codes[start..i]);
-            if code == 13 && i + 1 < codes.len() && codes[i + 1] == 10 {
-                i += 2;
-            } else {
-                i += 1;
-            }
-            start = i;
-        } else {
-            i += 1;
-        }
-    }
-    segments.push(&codes[start..]);
-    segments
 }
 
 fn is_ws_code(code: i32) -> bool {
@@ -562,96 +536,6 @@ fn print_output(v: &[String]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn split_by_newline_empty() {
-        let result = split_by_newline(&[]);
-        assert_eq!(result, [<&[i32]>::default()]);
-    }
-
-    #[test]
-    fn split_by_newline_no_newlines() {
-        let codes = [104, 101, 108, 108, 111];
-        let result = split_by_newline(&codes);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0], &codes);
-    }
-
-    #[test]
-    fn split_by_newline_single_lf() {
-        let codes = [104, 101, 10, 119, 111];
-        let result = split_by_newline(&codes);
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0], &[104, 101]);
-        assert_eq!(result[1], &[119, 111]);
-    }
-
-    #[test]
-    fn split_by_newline_single_cr() {
-        let codes = [104, 101, 13, 119, 111];
-        let result = split_by_newline(&codes);
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0], &[104, 101]);
-        assert_eq!(result[1], &[119, 111]);
-    }
-
-    #[test]
-    fn split_by_newline_crlf_as_single_boundary() {
-        let codes = [104, 101, 13, 10, 119, 111];
-        let result = split_by_newline(&codes);
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0], &[104, 101]);
-        assert_eq!(result[1], &[119, 111]);
-    }
-
-    #[test]
-    fn split_by_newline_crlf_no_extra_empty_segment() {
-        let codes = [65, 13, 10, 66, 13, 10, 67];
-        let result = split_by_newline(&codes);
-        assert_eq!(result.len(), 3);
-        assert_eq!(result[0], &[65]);
-        assert_eq!(result[1], &[66]);
-        assert_eq!(result[2], &[67]);
-    }
-
-    #[test]
-    fn split_by_newline_consecutive_lf() {
-        let codes = [65, 10, 10, 66];
-        let result = split_by_newline(&codes);
-        assert_eq!(result.len(), 3);
-        assert_eq!(result[0], &[65]);
-        assert!(result[1].is_empty());
-        assert_eq!(result[2], &[66]);
-    }
-
-    #[test]
-    fn split_by_newline_mixed_newlines() {
-        let codes = [65, 13, 10, 66, 10, 67, 13, 68];
-        let result = split_by_newline(&codes);
-        assert_eq!(result.len(), 4);
-        assert_eq!(result[0], &[65]);
-        assert_eq!(result[1], &[66]);
-        assert_eq!(result[2], &[67]);
-        assert_eq!(result[3], &[68]);
-    }
-
-    #[test]
-    fn split_by_newline_trailing_crlf() {
-        let codes = [65, 13, 10];
-        let result = split_by_newline(&codes);
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0], &[65]);
-        assert!(result[1].is_empty());
-    }
-
-    #[test]
-    fn split_by_newline_leading_crlf() {
-        let codes = [13, 10, 65];
-        let result = split_by_newline(&codes);
-        assert_eq!(result.len(), 2);
-        assert!(result[0].is_empty());
-        assert_eq!(result[1], &[65]);
-    }
 
     #[test]
     fn is_blank_codes_empty() {
