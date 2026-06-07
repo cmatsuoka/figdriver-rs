@@ -73,6 +73,10 @@ required-features = ["cli"]
 name = "showfigfonts"
 required-features = ["cli"]
 
+[[test]]
+name = "stdin_line_endings"
+required-features = ["cli"]
+
 [features]
 default = []
 cli = ["dep:pico-args", "dep:terminal_size"]
