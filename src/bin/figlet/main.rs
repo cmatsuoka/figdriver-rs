@@ -394,13 +394,7 @@ fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Co
             for segment in &segments[..len] {
                 write_paragraph(&mut wr, segment);
             }
-            if !wr.is_empty() {
-                // Reference figlet converts the final newline at EOF to a space
-                if trailing_newline {
-                    wr.push_str(" ").ok();
-                }
-                print_output(&wr.get());
-            }
+            flush_paragraph_eof(&mut wr, trailing_newline);
         } else {
             write_line(&mut wr, msg);
         }
@@ -421,13 +415,7 @@ fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Co
                 let codes = ctrl.decode_bytes(&buf);
                 write_paragraph_codes(&mut wr, &codes);
             }
-            if !wr.is_empty() {
-                // Reference figlet converts the final newline at EOF to a space
-                if had_trailing_newline {
-                    wr.push_codes(&[32]).ok();
-                }
-                print_output(&wr.get());
-            }
+            flush_paragraph_eof(&mut wr, had_trailing_newline);
         } else {
             loop {
                 buf.clear();
@@ -451,13 +439,7 @@ fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Co
                 }
                 write_paragraph(&mut wr, &line);
             }
-            if !wr.is_empty() {
-                // Reference figlet converts the final newline at EOF to a space
-                if had_trailing_newline {
-                    wr.push_str(" ").ok();
-                }
-                print_output(&wr.get());
-            }
+            flush_paragraph_eof(&mut wr, had_trailing_newline);
         } else {
             let mut line = String::new();
             while input.read_line(&mut line)? > 0 {
@@ -569,6 +551,16 @@ fn print_output(v: &[String]) {
     for x in v {
         println!("{}", x);
     }
+}
+
+fn flush_paragraph_eof(wr: &mut figdriver::Wrapper, has_trailing_newline: bool) {
+    if wr.is_empty() {
+        return;
+    }
+    if has_trailing_newline {
+        wr.push_str(" ").ok();
+    }
+    print_output(&wr.get());
 }
 
 #[cfg(test)]
