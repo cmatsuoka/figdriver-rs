@@ -325,6 +325,16 @@ impl Control {
     }
 }
 
+impl Default for Control {
+    fn default() -> Self {
+        Self {
+            files: Vec::new(),
+            encoding: InputEncoding::Default,
+            iso2022: Iso2022Settings::default(),
+        }
+    }
+}
+
 /// Parse a "t" command line.
 fn parse_t_command(line: &str) -> Result<Option<FlcCommand>, Error> {
     let tokens = tokenize_flc_line(line);
