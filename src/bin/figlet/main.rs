@@ -382,25 +382,40 @@ fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Co
     let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1, justify_align);
 
     if !msg.is_empty() {
-        write_line(&mut wr, msg);
+        if cfg.paragraph {
+            let trailing_newline = msg.ends_with('\n');
+            let segments: Vec<&str> = msg.split('\n').collect();
+            // Skip the last empty segment when message ends with newline
+            let len = if trailing_newline && segments.last().is_some_and(|s| s.is_empty()) {
+                segments.len() - 1
+            } else {
+                segments.len()
+            };
+            for segment in &segments[..len] {
+                write_paragraph(&mut wr, segment);
+            }
+            flush_paragraph_eof(&mut wr, trailing_newline);
+        } else {
+            write_line(&mut wr, msg);
+        }
     } else if control.is_some() {
         let ctrl = control.as_ref().unwrap();
         let mut input = io::BufReader::new(io::stdin());
         let mut buf = Vec::new();
         if cfg.paragraph {
+            let mut had_trailing_newline = false;
             loop {
                 buf.clear();
                 let n = input.read_until(b'\n', &mut buf)?;
                 if n == 0 { break; }
+                had_trailing_newline = buf.ends_with(b"\n") || buf.ends_with(b"\r");
                 while buf.ends_with(b"\n") || buf.ends_with(b"\r") {
                     buf.pop();
                 }
                 let codes = ctrl.decode_bytes(&buf);
                 write_paragraph_codes(&mut wr, &codes);
             }
-            if !wr.is_empty() {
-                print_output(&wr.get());
-            }
+            flush_paragraph_eof(&mut wr, had_trailing_newline);
         } else {
             loop {
                 buf.clear();
@@ -413,13 +428,18 @@ fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Co
     } else {
         let mut input = io::BufReader::new(io::stdin());
         if cfg.paragraph {
-            for line in input.lines() {
-                let line = line?;
+            let mut had_trailing_newline = false;
+            loop {
+                let mut line = String::new();
+                let n = input.read_line(&mut line)?;
+                if n == 0 { break; }
+                had_trailing_newline = line.ends_with('\n') || line.ends_with('\r');
+                while line.ends_with('\n') || line.ends_with('\r') {
+                    line.pop();
+                }
                 write_paragraph(&mut wr, &line);
             }
-            if !wr.is_empty() {
-                print_output(&wr.get());
-            }
+            flush_paragraph_eof(&mut wr, had_trailing_newline);
         } else {
             let mut line = String::new();
             while input.read_line(&mut line)? > 0 {
@@ -531,6 +551,16 @@ fn print_output(v: &[String]) {
     for x in v {
         println!("{}", x);
     }
+}
+
+fn flush_paragraph_eof(wr: &mut figdriver::Wrapper, has_trailing_newline: bool) {
+    if wr.is_empty() {
+        return;
+    }
+    if has_trailing_newline {
+        wr.push_str(" ").ok();
+    }
+    print_output(&wr.get());
 }
 
 #[cfg(test)]
