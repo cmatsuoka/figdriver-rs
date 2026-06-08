@@ -230,18 +230,18 @@ fn run_figlet() -> Result<(), Error> {
         .join(" ");
 
     let control = if control_files.is_empty() {
-        None
+        Control::default()
     } else {
-        Some(Control::from_paths(&control_paths)?)
+        Control::from_paths(&control_paths)?
     };
 
-    run_figlet_render(&fontpath, &msg, &RunConfig {
+    run_figlet_render(&fontpath, msg, &RunConfig {
             layout_mode,
             print_dir,
             width,
             paragraph,
             justify,
-        }, control)?;
+        }, &control)?;
     Ok(())
 }
 
@@ -345,7 +345,7 @@ struct RunConfig {
     justify: Justify,
 }
 
-fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Control>) -> Result<(), figdriver::Error> {
+fn run_figlet_render(path: &Path, msg: String, cfg: &RunConfig, control: &Control) -> Result<(), figdriver::Error> {
     if !path.exists() {
         return Err(figdriver::Error::FontNotFound(path.to_path_buf()));
     }
@@ -372,7 +372,7 @@ fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Co
     };
 
     let sm = figdriver::Smusher::builder(&font)
-        .control(control.as_ref())
+        .control(Some(control))
         .layout_mode(layout_mode)
         .right_to_left(resolved_rtl)
         .build();
@@ -381,71 +381,35 @@ fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Co
     // "allow lines up to N-1 characters" rather than N characters.
     let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1, justify_align);
 
-    if !msg.is_empty() {
-        if cfg.paragraph {
-            let trailing_newline = msg.ends_with('\n');
-            let segments: Vec<&str> = msg.split('\n').collect();
-            // Skip the last empty segment when message ends with newline
-            let len = if trailing_newline && segments.last().is_some_and(|s| s.is_empty()) {
-                segments.len() - 1
-            } else {
-                segments.len()
-            };
-            for segment in &segments[..len] {
-                write_paragraph(&mut wr, segment);
-            }
-            flush_paragraph_eof(&mut wr, trailing_newline);
-        } else {
-            write_line(&mut wr, msg);
-        }
-    } else if control.is_some() {
-        let ctrl = control.as_ref().unwrap();
-        let mut input = io::BufReader::new(io::stdin());
-        let mut buf = Vec::new();
-        if cfg.paragraph {
-            let mut had_trailing_newline = false;
-            loop {
-                buf.clear();
-                let n = input.read_until(b'\n', &mut buf)?;
-                if n == 0 { break; }
-                had_trailing_newline = buf.ends_with(b"\n") || buf.ends_with(b"\r");
-                while buf.ends_with(b"\n") || buf.ends_with(b"\r") {
-                    buf.pop();
-                }
-                let codes = ctrl.decode_bytes(&buf);
-                write_paragraph_codes(&mut wr, &codes);
-            }
-            flush_paragraph_eof(&mut wr, had_trailing_newline);
-        } else {
-            loop {
-                buf.clear();
-                let n = input.read_until(b'\n', &mut buf)?;
-                if n == 0 { break; }
-                let codes = ctrl.decode_bytes(&buf);
-                write_line_codes(&mut wr, &codes);
-            }
-        }
+    let source: Box<dyn io::Read> = if !msg.is_empty() {
+        Box::new(io::Cursor::new(msg))
     } else {
-        let mut input = io::BufReader::new(io::stdin());
-        if cfg.paragraph {
-            let mut had_trailing_newline = false;
-            loop {
-                let mut line = String::new();
-                let n = input.read_line(&mut line)?;
-                if n == 0 { break; }
-                had_trailing_newline = line.ends_with('\n') || line.ends_with('\r');
-                while line.ends_with('\n') || line.ends_with('\r') {
-                    line.pop();
-                }
-                write_paragraph(&mut wr, &line);
+        Box::new(io::stdin())
+    };
+    let mut input = io::BufReader::new(source);
+
+    let mut buf = Vec::new();
+    if cfg.paragraph {
+        let mut had_trailing_newline = false;
+        loop {
+            buf.clear();
+            let n = input.read_until(b'\n', &mut buf)?;
+            if n == 0 { break; }
+            had_trailing_newline = buf.ends_with(b"\n") || buf.ends_with(b"\r");
+            while buf.ends_with(b"\n") || buf.ends_with(b"\r") {
+                buf.pop();
             }
-            flush_paragraph_eof(&mut wr, had_trailing_newline);
-        } else {
-            let mut line = String::new();
-            while input.read_line(&mut line)? > 0 {
-                write_line(&mut wr, &line);
-                line.clear();
-            }
+            let codes = control.decode_bytes(&buf);
+            write_paragraph_codes(&mut wr, &codes);
+        }
+        flush_paragraph_eof(&mut wr, had_trailing_newline);
+    } else {
+        loop {
+            buf.clear();
+            let n = input.read_until(b'\n', &mut buf)?;
+            if n == 0 { break; }
+            let codes = control.decode_bytes(&buf);
+            write_line_codes(&mut wr, &codes);
         }
     }
 
@@ -458,10 +422,6 @@ fn is_ws_code(code: i32) -> bool {
 
 fn is_blank_codes(codes: &[i32]) -> bool {
     codes.iter().all(|&code| is_ws_code(code))
-}
-
-fn is_blank_str(s: &str) -> bool {
-    s.chars().all(|c| c == ' ' || c == '\t' || c == '\n' || c == '\r')
 }
 
 fn write_tokens_codes(wr: &mut figdriver::Wrapper, codes: &[i32]) {
@@ -504,46 +464,6 @@ fn write_paragraph_codes(wr: &mut figdriver::Wrapper, codes: &[i32]) {
     }
     if !is_blank_codes(codes) {
         write_tokens_codes(wr, codes);
-    }
-}
-
-fn write_line(wr: &mut figdriver::Wrapper, s: &str) {
-    wr.clear();
-    write_tokens(wr, s);
-    if !wr.is_empty() {
-        print_output(&wr.get());
-    }
-}
-
-fn write_paragraph(wr: &mut figdriver::Wrapper, s: &str) {
-    if !wr.is_empty() {
-        if s.starts_with(' ') || is_blank_str(s) {
-            print_output(&wr.get());
-            wr.clear();
-        } else {
-            wr.wrap_str(" ", &print_output);
-        }
-    }
-    if !is_blank_str(s) {
-        write_tokens(wr, s);
-    }
-}
-
-fn write_tokens(wr: &mut figdriver::Wrapper, s: &str) {
-    let mut chars = s.char_indices().peekable();
-    let mut start = 0;
-
-    while let Some((_, c)) = chars.next() {
-        let is_ws = c.is_whitespace();
-        while let Some(&(_, next_c)) = chars.peek() {
-            if next_c.is_whitespace() != is_ws || (is_ws && next_c != ' ') {
-                break;
-            }
-            chars.next();
-        }
-        let end = chars.peek().map_or(s.len(), |&(idx, _)| idx);
-        wr.wrap_str(&s[start..end], &print_output);
-        start = end;
     }
 }
 
