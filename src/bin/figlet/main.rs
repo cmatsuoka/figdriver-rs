@@ -235,7 +235,7 @@ fn run_figlet() -> Result<(), Error> {
         Some(Control::from_paths(&control_paths)?)
     };
 
-    run_figlet_render(&fontpath, &msg, &RunConfig {
+    run_figlet_render(&fontpath, msg, &RunConfig {
             layout_mode,
             print_dir,
             width,
@@ -345,7 +345,7 @@ struct RunConfig {
     justify: Justify,
 }
 
-fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Control>) -> Result<(), figdriver::Error> {
+fn run_figlet_render(path: &Path, msg: String, cfg: &RunConfig, control: Option<Control>) -> Result<(), figdriver::Error> {
     if !path.exists() {
         return Err(figdriver::Error::FontNotFound(path.to_path_buf()));
     }
@@ -381,26 +381,14 @@ fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Co
     // "allow lines up to N-1 characters" rather than N characters.
     let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1, justify_align);
 
-    if !msg.is_empty() {
-        if cfg.paragraph {
-            let trailing_newline = msg.ends_with('\n');
-            let segments: Vec<&str> = msg.split('\n').collect();
-            // Skip the last empty segment when message ends with newline
-            let len = if trailing_newline && segments.last().is_some_and(|s| s.is_empty()) {
-                segments.len() - 1
-            } else {
-                segments.len()
-            };
-            for segment in &segments[..len] {
-                write_paragraph(&mut wr, segment);
-            }
-            flush_paragraph_eof(&mut wr, trailing_newline);
-        } else {
-            write_line(&mut wr, msg);
-        }
-    } else if control.is_some() {
-        let ctrl = control.as_ref().unwrap();
-        let mut input = io::BufReader::new(io::stdin());
+    let source: Box<dyn io::Read> = if !msg.is_empty() {
+        Box::new(io::Cursor::new(msg))
+    } else {
+        Box::new(io::stdin())
+    };
+    let mut input = io::BufReader::new(source);
+
+    if let Some(ctrl) = control.as_ref() {
         let mut buf = Vec::new();
         if cfg.paragraph {
             let mut had_trailing_newline = false;
@@ -426,7 +414,6 @@ fn run_figlet_render(path: &Path, msg: &str, cfg: &RunConfig, control: Option<Co
             }
         }
     } else {
-        let mut input = io::BufReader::new(io::stdin());
         if cfg.paragraph {
             let mut had_trailing_newline = false;
             loop {
