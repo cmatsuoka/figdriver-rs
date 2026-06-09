@@ -1,6 +1,7 @@
 use crate::Error;
 use crate::Smusher;
 use crate::control::Control;
+use crate::control::StreamingDecoder;
 use crate::smusher::display_width;
 
 /// Horizontal alignment of rendered ASCII-art output within the wrapper width.
@@ -28,7 +29,7 @@ pub struct Wrapper<'a> {
     wrap_width           : usize,            // terminal width
     align                : Align,            // text alignment
     had_trailing_newline : bool,             // tracks if last write_paragraph had trailing newline
-    control              : Control,          // control for decoding input bytes
+    decoder              : StreamingDecoder, // streaming decoder for stateful encodings
 }
 
 impl<'a> Wrapper<'a> {
@@ -55,7 +56,7 @@ impl<'a> Wrapper<'a> {
             align,
             pending_space         : None,
             had_trailing_newline  : false,
-            control,
+            decoder: control.create_streaming_decoder(),
         }
     }
 
@@ -324,7 +325,7 @@ impl<'a> Wrapper<'a> {
     /// Decodes the string using the control, clears the buffer, tokenizes and wraps,
     /// and flushes if buffer non-empty. Returns the rendered output lines.
     pub fn write_line(&mut self, s: &str, print_fn: &dyn Fn(&[String])) -> Vec<String> {
-        let codes = self.control.decode_bytes(s.as_bytes());
+        let codes = self.decoder.decode_bytes(s.as_bytes());
         self.clear();
         self.write_tokens(&codes, print_fn);
         if self.is_empty() {
@@ -341,7 +342,7 @@ impl<'a> Wrapper<'a> {
     /// joins with space. Flushed lines are passed to `print_fn`.
     pub fn write_paragraph(&mut self, s: &str, print_fn: &dyn Fn(&[String])) {
         self.had_trailing_newline = false;
-        let codes = self.control.decode_bytes(s.as_bytes());
+        let codes = self.decoder.decode_bytes(s.as_bytes());
         let mut stripped = codes.as_slice();
         while let Some(&last) = stripped.last() {
             if last == 10 || last == 13 {

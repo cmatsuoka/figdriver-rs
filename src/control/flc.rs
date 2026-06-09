@@ -323,6 +323,11 @@ impl Control {
     pub fn decode_bytes(&self, bytes: &[u8]) -> Vec<i32> {
         EncodingDecoder::new(bytes, self.encoding, Some(&self.iso2022)).collect()
     }
+
+    /// Create a streaming decoder that preserves state across multiple decode calls.
+    pub(crate) fn create_streaming_decoder(&self) -> super::decoder::StreamingDecoder {
+        super::decoder::StreamingDecoder::new(self.encoding, Some(&self.iso2022))
+    }
 }
 
 impl Default for Control {
