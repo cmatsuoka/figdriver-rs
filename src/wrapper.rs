@@ -25,7 +25,7 @@ pub struct Wrapper<'a> {
     sm                   : Smusher<'a>,      // the FIGcharacter smusher
     buffer               : Vec<i32>,         // buffer to keep our input codes
     pending_space        : Option<Vec<i32>>, // accumulated whitespace codes to commit with next word
-    max_width            : usize,            // terminal width
+    wrap_width           : usize,            // terminal width
     align                : Align,            // text alignment
     had_trailing_newline : bool,             // tracks if last write_paragraph had trailing newline
     control              : Control,          // control for decoding input bytes
@@ -47,10 +47,10 @@ impl<'a> Wrapper<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(sm: Smusher<'a>, control: Control, max_width: usize, align: Align) -> Self {
+    pub fn new(sm: Smusher<'a>, control: Control, wrap_width: usize, align: Align) -> Self {
         Wrapper{
             sm,
-            max_width,
+            wrap_width,
             buffer                : Vec::new(),
             align,
             pending_space         : None,
@@ -64,9 +64,9 @@ impl<'a> Wrapper<'a> {
         self.align
     }
 
-    /// Return the maximum width limit.
-    pub fn max_width(&self) -> usize {
-        self.max_width
+    /// Return the wrap width limit.
+    pub fn wrap_width(&self) -> usize {
+        self.wrap_width
     }
 
     /// Clear the output buffer.
@@ -103,8 +103,8 @@ impl<'a> Wrapper<'a> {
             self.push_codes(&sp).ok();
         }
 
-        if self.width() > self.max_width {
-            self.sm.trim(self.max_width);
+        if self.width() > self.wrap_width {
+            self.sm.trim(self.wrap_width);
         }
 
         let mut v = self.sm.get_raw();
@@ -120,7 +120,7 @@ impl<'a> Wrapper<'a> {
         }
         self.sm.replace_hardblanks(&mut v);
 
-        let w = self.max_width.saturating_sub(max_w);
+        let w = self.wrap_width.saturating_sub(max_w);
 
         match self.align {
             Align::Left   => v.to_vec(),
@@ -148,7 +148,7 @@ impl<'a> Wrapper<'a> {
     fn push_code(&mut self, code: i32) -> Result<(), Error> {
         let rendered = self.sm.push_code(code);
 
-        if self.sm.width() > self.max_width {
+        if self.sm.width() > self.wrap_width {
             self.sm.clear();
             for &c in &self.buffer {
                 self.sm.push_code(c);
@@ -177,7 +177,7 @@ impl<'a> Wrapper<'a> {
             }
         }
 
-        if self.sm.width() > self.max_width {
+        if self.sm.width() > self.wrap_width {
             self.sm.clear();
             self.buffer.truncate(buf_len);
             for &c in &self.buffer {
