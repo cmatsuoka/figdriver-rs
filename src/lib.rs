@@ -9,7 +9,7 @@ pub use self::figfont::{
     SMUSH_ENABLE, SMUSH_EQUAL, SMUSH_HARDBLANK, SMUSH_HIERARCHY,
     SMUSH_KERN, SMUSH_PAIR, SMUSH_UNDERLINE, SMUSH_BIGX,
 };
-pub use self::wrapper::{Align, Wrapper};
+pub use self::wrapper::{Align, Wrapper, is_whitespace_code};
 pub use self::smusher::{LayoutMode, Smusher, SmusherBuilder};
 pub use self::control::{Control, Flc, InputEncoding};
 

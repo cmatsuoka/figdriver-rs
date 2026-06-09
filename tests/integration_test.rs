@@ -11,6 +11,7 @@ macro_rules! new_smusher {
         let $font = load_font($path);
         let mut $wr = figdriver::Wrapper::new(
             figdriver::Smusher::new(&$font),
+            figdriver::Control::default(),
             $width,
             $align,
         );
@@ -21,6 +22,7 @@ macro_rules! new_smusher {
             figdriver::Smusher::builder(&$font)
                 .layout_mode($mode)
                 .build(),
+            figdriver::Control::default(),
             $width,
             $align,
         );
@@ -31,6 +33,7 @@ macro_rules! new_smusher {
             figdriver::Smusher::builder(&$font)
                 .right_to_left(true)
                 .build(),
+            figdriver::Control::default(),
             $width,
             $align,
         );
@@ -42,6 +45,7 @@ macro_rules! new_smusher {
                 .layout_mode($mode)
                 .right_to_left(true)
                 .build(),
+            figdriver::Control::default(),
             $width,
             $align,
         );
@@ -65,29 +69,29 @@ fn line_full() {
 #[test]
 fn line_wrap() {
     new_smusher!(fnt, wr, "tests/fixtures/test.flf", 8, figdriver::Align::Left);
-    [ "this", " ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(&x, &dummy));
-    assert_eq!(wr.get(), vec!["a test"]);
+    let remaining = wr.write_line("this is a test", &dummy);
+    assert_eq!(remaining, vec!["a test"]);
 }
 
 #[test]
 fn wrap_align_left() {
     new_smusher!(fnt, wr, "tests/fixtures/test.flf", 12, figdriver::Align::Left);
-    [ "this", " ", "is", " ", "a", " ", "new", " ", "test" ].iter().for_each(|x| wr.wrap_str(&x, &dummy));
-    assert_eq!(wr.get(), vec!["new test"]);
+    let remaining = wr.write_line("this is a new test", &dummy);
+    assert_eq!(remaining, vec!["new test"]);
 }
 
 #[test]
 fn wrap_align_center() {
     new_smusher!(fnt, wr, "tests/fixtures/test.flf", 12, figdriver::Align::Center);
-    [ "this", " ", "is", " ", "a", " ", "new", " ", "test" ].iter().for_each(|x| wr.wrap_str(&x, &dummy));
-    assert_eq!(wr.get(), vec!["  new test"]);
+    let remaining = wr.write_line("this is a new test", &dummy);
+    assert_eq!(remaining, vec!["  new test"]);
 }
 
 #[test]
 fn wrap_align_right() {
     new_smusher!(fnt, wr, "tests/fixtures/test.flf", 12, figdriver::Align::Right);
-    [ "this", " ", "is", " ", "a", " ", "new", " ", "test" ].iter().for_each(|x| wr.wrap_str(&x, &dummy));
-    assert_eq!(wr.get(), vec!["    new test"]);
+    let remaining = wr.write_line("this is a new test", &dummy);
+    assert_eq!(remaining, vec!["    new test"]);
 }
 
 #[test]
@@ -172,73 +176,65 @@ fn right_to_left() {
 #[test]
 fn consecutive_blanks_collapsed_at_wrap() {
     // Multiple blanks at a wrap point should be discarded per spec.
-    // With preserved whitespace, "this   is" exceeds width 8, wrapping earlier.
     new_smusher!(fnt, wr, "tests/fixtures/test.flf", 8, figdriver::Align::Left);
-    [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
-    assert_eq!(wr.get(), vec!["test"]);
+    let remaining = wr.write_line("this   is a test", &dummy);
+    assert_eq!(remaining, vec!["test"]);
 }
 
 #[test]
 fn leading_blanks_preserved() {
     // Blanks at the start of input should be rendered as FIGcharacters.
     new_smusher!(fnt, wr, "tests/fixtures/test.flf", 30, figdriver::Align::Left);
-    wr.wrap_str("   ", &dummy);
-    wr.wrap_str("x", &dummy);
-    assert_eq!(wr.get(), vec!["   x"]);
+    let remaining = wr.write_line("   x", &dummy);
+    assert_eq!(remaining, vec!["   x"]);
 }
 
 #[test]
 fn rtl_consecutive_blanks_collapsed_at_wrap() {
     // Multiple blanks at a wrap point should be discarded in RTL mode.
-    // In RTL mode with the test font, text is reversed (chars prepended left).
-    // With preserved whitespace, "this   is" exceeds width 8, wrapping earlier.
     new_smusher!(fnt, wr, "tests/fixtures/test.flf", 8, figdriver::Align::Left, rtl);
-    [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
-    assert_eq!(wr.get(), vec!["tset"]);
+    let remaining = wr.write_line("this   is a test", &dummy);
+    assert_eq!(remaining, vec!["tset"]);
 }
 
 #[test]
 fn rtl_leading_blanks_preserved() {
     // Blanks at the start of input should be rendered as FIGcharacters in RTL mode.
-    // In RTL, leading blanks become trailing rendered spaces, preserved in output (figlet behavior).
     new_smusher!(fnt, wr, "tests/fixtures/test.flf", 30, figdriver::Align::Left, rtl);
-    wr.wrap_str("   ", &dummy);
-    wr.wrap_str("x", &dummy);
-    // After RTL smushing: "x   " (x prepended left of 3 spaces)
-    assert_eq!(wr.get(), vec!["x   "]);
+    let remaining = wr.write_line("   x", &dummy);
+    assert_eq!(remaining, vec!["x   "]);
 }
 
 #[test]
 fn rtl_inter_word_blanks_preserved() {
     // Multiple blanks between words should be preserved in RTL mode.
     new_smusher!(fnt, wr, "tests/fixtures/test.flf", 30, figdriver::Align::Left, rtl);
-    [ "a", "   ", "b" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
-    assert_eq!(wr.get(), vec!["b   a"]);
+    let remaining = wr.write_line("a   b", &dummy);
+    assert_eq!(remaining, vec!["b   a"]);
 }
 
 #[test]
 fn rtl_blank_after_wrap_discarded() {
     // Whitespace immediately after a flush should be discarded in RTL mode.
     new_smusher!(fnt, wr, "tests/fixtures/test.flf", 4, figdriver::Align::Left, rtl);
-    [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
-    // "this" (4) wraps, "is a" (4) wraps, "test" (4) → RTL rendered as "tset"
-    assert_eq!(wr.get(), vec!["tset"]);
+    let remaining = wr.write_line("this   is a test", &dummy);
+    assert_eq!(remaining, vec!["tset"]);
 }
 
 #[test]
 fn inter_word_blanks_preserved() {
     // Multiple blanks between words should be preserved.
     new_smusher!(fnt, wr, "tests/fixtures/test.flf", 30, figdriver::Align::Left);
-    [ "a", "   ", "b" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
-    assert_eq!(wr.get(), vec!["a   b"]);
+    let remaining = wr.write_line("a   b", &dummy);
+    assert_eq!(remaining, vec!["a   b"]);
 }
 
 #[test]
 fn blank_after_wrap_discarded() {
     // Whitespace immediately after a flush should be discarded.
     new_smusher!(fnt, wr, "tests/fixtures/test.flf", 4, figdriver::Align::Left);
-    [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
-    assert_eq!(wr.get(), vec!["test"]);
+    let remaining = wr.write_line("this   is a test", &dummy);
+    assert_eq!(remaining, vec!["test"]);
 }
 
 #[test]
@@ -311,7 +307,7 @@ fn flc_all_chars_skipped_produces_no_output() {
     let sm = figdriver::Smusher::builder(&font)
         .control(Some(&pipeline))
         .build();
-    let mut wr = figdriver::Wrapper::new(sm, 80, figdriver::Align::Left);
+    let mut wr = figdriver::Wrapper::new(sm, pipeline.clone(), 80, figdriver::Align::Left);
     assert!(wr.push_str("Test").is_ok());
     assert!(wr.is_empty());
     let output = wr.get();
@@ -325,15 +321,10 @@ fn paragraph_mode_newline_converts_to_space() {
     // words, producing wider output than "HelloWorld" (no space).
     new_smusher!(fnt, wr, "fonts/small.flf", 80, figdriver::Align::Left);
 
-    // Simulate paragraph mode: process two lines with space insertion
-    wr.wrap_str("Hello", &dummy);
-    wr.wrap_str(" ", &dummy);
-    wr.wrap_str("World", &dummy);
-    let with_space = wr.get();
+    let with_space = wr.write_line("Hello World", &dummy);
 
     new_smusher!(fnt2, wr2, "fonts/small.flf", 80, figdriver::Align::Left);
-    wr2.wrap_str("HelloWorld", &dummy);
-    let without_space = wr2.get();
+    let without_space = wr2.write_line("HelloWorld", &dummy);
 
     assert!(
         with_space[0].chars().count() > without_space[0].chars().count(),
@@ -349,7 +340,7 @@ fn crlf_treated_as_single_newline() {
     let flushed = std::cell::RefCell::new(Vec::new());
     let closure = &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
 
-    wr.wrap_codes(&[72, 101, 108, 108, 111, 13, 10, 87, 111, 114, 108, 100], closure);
+    let _remaining = wr.write_line("Hello\r\nWorld", closure);
 
     let flushed = flushed.borrow();
     assert_eq!(flushed.len(), 1, "CRLF should produce one flush (not two)");
@@ -361,7 +352,7 @@ fn bare_cr_treated_as_newline() {
     let flushed = std::cell::RefCell::new(Vec::new());
     let closure = &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
 
-    wr.wrap_codes(&[72, 101, 108, 108, 111, 13, 87, 111, 114, 108, 100], closure);
+    let _remaining = wr.write_line("Hello\rWorld", closure);
 
     let flushed = flushed.borrow();
     assert_eq!(flushed.len(), 1, "bare CR should produce one flush");
@@ -373,7 +364,7 @@ fn tab_code_treated_as_whitespace() {
     let flushed = std::cell::RefCell::new(Vec::new());
     let closure = &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
 
-    wr.wrap_codes(&[72, 101, 108, 108, 111, 9, 9, 87, 111, 114, 108, 100], closure);
+    let _remaining = wr.write_line("Hello\t\tWorld", closure);
 
     let flushed = flushed.borrow();
     assert!(flushed.is_empty(), "tab-separated words should not flush on narrow line");
@@ -383,7 +374,6 @@ fn tab_code_treated_as_whitespace() {
 fn consecutive_tabs_grouped_as_whitespace() {
     new_smusher!(fnt, wr, "fonts/small.flf", 80, figdriver::Align::Left);
 
-    wr.wrap_codes(&[9, 9, 9], &dummy);
-    let pending = wr.get();
-    assert!(!pending.is_empty(), "tabs at start should be preserved as leading whitespace");
+    let remaining = wr.write_line("\t\t\t", &dummy);
+    assert!(remaining.iter().any(|s| !s.is_empty()), "tabs at start should be preserved as leading whitespace");
 }

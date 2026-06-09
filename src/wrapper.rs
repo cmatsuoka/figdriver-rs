@@ -1,5 +1,6 @@
 use crate::Error;
 use crate::Smusher;
+use crate::control::Control;
 use crate::smusher::display_width;
 
 /// Horizontal alignment of rendered ASCII-art output within the wrapper width.
@@ -21,15 +22,17 @@ pub enum Align {
 /// too long, thus producing multiple "lines" of output text.
 #[derive(Debug)]
 pub struct Wrapper<'a> {
-    sm            : Smusher<'a>,    // the FIGcharacter smusher
-    buffer        : Vec<i32>,       // buffer to keep our input codes
-    pending_space : Option<Vec<i32>>, // accumulated whitespace codes to commit with next word
-    width     : usize,              // terminal width
-    align     : Align,              // text alignment
+    sm                   : Smusher<'a>,      // the FIGcharacter smusher
+    buffer               : Vec<i32>,         // buffer to keep our input codes
+    pending_space        : Option<Vec<i32>>, // accumulated whitespace codes to commit with next word
+    width                : usize,            // terminal width
+    align                : Align,            // text alignment
+    had_trailing_newline : bool,             // tracks if last write_paragraph had trailing newline
+    control              : Control,          // control for decoding input bytes
 }
 
 impl<'a> Wrapper<'a> {
-    /// Create a new wrapper using the specified Smusher, terminal width, and alignment.
+    /// Create a new wrapper using the specified Smusher, Control, terminal width, and alignment.
     ///
     /// # Examples
     ///
@@ -40,17 +43,19 @@ impl<'a> Wrapper<'a> {
     /// let sm = figdriver::Smusher::new(&font);
     ///
     /// // Create a line wrapper using our smusher and maximum width of 80 columns
-    /// let mut wr = figdriver::Wrapper::new(sm, 80, figdriver::Align::Left);
+    /// let mut wr = figdriver::Wrapper::new(sm, figdriver::Control::default(), 80, figdriver::Align::Left);
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(sm: Smusher<'a>, width: usize, align: Align) -> Self {
+    pub fn new(sm: Smusher<'a>, control: Control, width: usize, align: Align) -> Self {
         Wrapper{
             sm,
             width,
-            buffer        : Vec::new(),
+            buffer                : Vec::new(),
             align,
-            pending_space : None,
+            pending_space         : None,
+            had_trailing_newline  : false,
+            control,
         }
     }
 
@@ -69,6 +74,7 @@ impl<'a> Wrapper<'a> {
         self.sm.clear();
         self.buffer.clear();
         self.pending_space = None;
+        self.had_trailing_newline = false;
     }
 
     /// Retrieve the output buffer lines.
@@ -79,7 +85,7 @@ impl<'a> Wrapper<'a> {
     /// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
     /// // Create a new wrapper
     /// let mut font = figdriver::FIGfont::from_path("small.flf")?;
-    /// let mut wr = figdriver::Wrapper::new(figdriver::Smusher::new(&font), 80, figdriver::Align::Left);
+    /// let mut wr = figdriver::Wrapper::new(figdriver::Smusher::new(&font), figdriver::Control::default(), 80, figdriver::Align::Left);
     ///
     /// // Add a string to the output buffer
     /// wr.push_str("hello")?;
@@ -139,7 +145,7 @@ impl<'a> Wrapper<'a> {
     ///
     /// If adding the code results in a line wider than the maximum number of columns,
     /// the code is not added to the output buffer and a LineFull error is returned.
-    pub fn push_code(&mut self, code: i32) -> Result<(), Error> {
+    fn push_code(&mut self, code: i32) -> Result<(), Error> {
         let rendered = self.sm.push_code(code);
 
         if self.sm.len() > self.width {
@@ -162,7 +168,7 @@ impl<'a> Wrapper<'a> {
     ///
     /// If adding the codes results in a line wider than the maximum number of columns,
     /// the codes are not added to the output buffer and a LineFull error is returned.
-    pub fn push_codes(&mut self, codes: &[i32]) -> Result<(), Error> {
+    fn push_codes(&mut self, codes: &[i32]) -> Result<(), Error> {
         let buf_len = self.buffer.len();
         for &code in codes {
             let rendered = self.sm.push_code(code);
@@ -213,7 +219,7 @@ impl<'a> Wrapper<'a> {
     /// Explicit newline codes (10) in the input force a flush of the current
     /// buffer, starting a new output line (figfont.txt lines 1617-1621).
     /// Carriage return codes (13) are normalized to newline (10).
-    pub fn wrap_codes(&mut self, codes: &[i32], flush: &dyn Fn(&[String])) {
+    fn wrap_codes(&mut self, codes: &[i32], flush: &dyn Fn(&[String])) {
         // Normalize CR to LF: convert \r\n -> \n and bare \r -> \n
         let normalized: Vec<i32> = normalize_newlines(codes);
 
@@ -244,13 +250,14 @@ impl<'a> Wrapper<'a> {
     ///
     /// Explicit newline characters ('\n') in the input force a flush of the current
     /// buffer, starting a new output line (figfont.txt lines 1617-1621).
-    pub fn wrap_str(&mut self, s: &str, flush: &dyn Fn(&[String])) {
+    #[allow(dead_code)]
+    fn wrap_str(&mut self, s: &str, flush: &dyn Fn(&[String])) {
         self.wrap_codes(&codes_from_str(s), flush);
     }
 
     /// Internal wrapper logic for a single segment (no newlines).
     fn wrap_segment(&mut self, codes: &[i32], flush: &dyn Fn(&[String])) {
-        let all_space = codes.iter().all(|&c| is_space(c));
+        let all_space = codes.iter().all(|&c| is_whitespace_code(c));
 
         // Handle whitespace codes per spec (figfont.txt lines 1623-1633):
         // - At wrap points: discard all blanks until next non-blank character
@@ -306,9 +313,94 @@ impl<'a> Wrapper<'a> {
                 flush(&self.get());
                 self.clear();
             }
-            if self.push_codes(codes).is_err() {
-                self.wrap_word(codes, flush);
+           if self.push_codes(codes).is_err() {
+                    self.wrap_word(codes, flush);
             }
+        }
+    }
+
+    /// Render a string in line mode.
+    ///
+    /// Decodes the string using the control, clears the buffer, tokenizes and wraps,
+    /// and flushes if buffer non-empty. Returns the rendered output lines.
+    pub fn write_line(&mut self, s: &str, print_fn: &dyn Fn(&[String])) -> Vec<String> {
+        let codes = self.control.decode_bytes(s.as_bytes());
+        self.clear();
+        self.write_tokens(&codes, print_fn);
+        if self.is_empty() {
+            return Vec::new();
+        }
+        self.get()
+    }
+
+    /// Render a string in paragraph mode.
+    ///
+    /// Accepts a string that may include trailing newlines. Decodes using the
+    /// control, strips trailing newlines internally, and tracks them for EOF
+    /// flush. Blank line or leading space causes a hard break (flush). Otherwise
+    /// joins with space. Flushed lines are passed to `print_fn`.
+    pub fn write_paragraph(&mut self, s: &str, print_fn: &dyn Fn(&[String])) {
+        self.had_trailing_newline = false;
+        let codes = self.control.decode_bytes(s.as_bytes());
+        let mut stripped = codes.as_slice();
+        while let Some(&last) = stripped.last() {
+            if last == 10 || last == 13 {
+                stripped = &stripped[..stripped.len() - 1];
+                self.had_trailing_newline = true;
+            } else {
+                break;
+            }
+        }
+        if !self.is_empty() {
+            if is_blank_codes(stripped) || (stripped.first() == Some(&32)) {
+                print_fn(&self.get());
+                self.clear();
+            } else {
+                self.wrap_codes(&[32], print_fn);
+            }
+        }
+        if !is_blank_codes(stripped) {
+            self.write_tokens(stripped, print_fn);
+        }
+    }
+
+    /// Flush paragraph buffer at EOF.
+    ///
+    /// If buffer empty: no-op.
+    /// If last line had a trailing newline: pushes space to preserve trailing whitespace, then flushes.
+    /// Prints flushed lines via `print_fn`.
+    pub fn flush_paragraph_eof(&mut self, print_fn: &dyn Fn(&[String])) {
+        if self.is_empty() {
+            return;
+        }
+        if self.had_trailing_newline {
+            self.push_str(" ").ok();
+        }
+        print_fn(&self.get());
+    }
+
+    /// Internal tokenization: groups consecutive codes by type and wraps each token.
+    ///
+    /// Whitespace codes and non-whitespace codes are separated. Within whitespace,
+    /// spaces (code 32) are separated from other whitespace codes.
+    fn write_tokens(&mut self, codes: &[i32], print_fn: &dyn Fn(&[String])) {
+        let mut indices = codes.iter().enumerate().peekable();
+        let mut start = 0;
+
+        while let Some((_i, &code)) = indices.next() {
+            let is_ws = is_whitespace_code(code);
+            let is_space = code == 32;
+            while let Some(&(_j, &next_code)) = indices.peek() {
+                let next_ws = is_whitespace_code(next_code);
+                let next_space = next_code == 32;
+                if next_ws != is_ws || (is_ws && next_space != is_space) {
+                    break;
+                }
+                indices.next();
+            }
+            let end = indices.peek().map_or(codes.len(), |(idx, _)| *idx);
+            self.wrap_codes(&codes[start..end], print_fn);
+            start = end;
         }
     }
 
@@ -334,10 +426,15 @@ impl<'a> Wrapper<'a> {
     }
 }
 
-/// Check whether a code represents a horizontal whitespace character
-/// (space, tab, form feed, or other ASCII whitespace).
-fn is_space(code: i32) -> bool {
-    code == 32 || code == 9 || (11..=13).contains(&code)
+/// Check whether a code represents a whitespace character
+/// (space 32, tab 9, LF 10, VT 11, FF 12, CR 13).
+pub fn is_whitespace_code(code: i32) -> bool {
+    code == 32 || code == 9 || (10..=13).contains(&code)
+}
+
+/// Check whether all codes in a slice are whitespace.
+fn is_blank_codes(codes: &[i32]) -> bool {
+    codes.iter().all(|&code| is_whitespace_code(code))
 }
 
 /// Normalize carriage return codes to newline codes.
@@ -401,7 +498,7 @@ mod tests {
         use std::cell::RefCell;
         let font = test_font().unwrap();
         let sm = Smusher::new(&font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(sm, Control::default(), 80, Align::Left);
         let flushed = RefCell::new(Vec::new());
 
         wr.wrap_str("hello\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
@@ -439,7 +536,7 @@ mod tests {
         use std::cell::RefCell;
         let font = test_font().unwrap();
         let sm = Smusher::new(&font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(sm, Control::default(), 80, Align::Left);
         let flushed = RefCell::new(Vec::new());
 
         wr.wrap_str("hello\n\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
@@ -478,7 +575,7 @@ mod tests {
         use std::cell::RefCell;
         let font = test_font().unwrap();
         let sm = Smusher::new(&font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(sm, Control::default(), 80, Align::Left);
         let flushed = RefCell::new(Vec::new());
 
         wr.wrap_str("hello\n  world", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
@@ -518,7 +615,7 @@ mod tests {
 
         // CRLF
         let sm = Smusher::new(&font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(sm, Control::default(), 80, Align::Left);
         let flushed = RefCell::new(Vec::new());
         wr.wrap_str("hello\r\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
         let flushed = flushed.borrow();
@@ -537,7 +634,7 @@ mod tests {
 
         // Bare CR
         let sm = Smusher::new(&font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(sm, Control::default(), 80, Align::Left);
         let flushed = RefCell::new(Vec::new());
         wr.wrap_str("hello\rworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
         let flushed = flushed.borrow();
@@ -560,7 +657,7 @@ mod tests {
         use std::cell::RefCell;
         let font = test_font().unwrap();
         let sm = Smusher::new(&font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(sm, Control::default(), 80, Align::Left);
         let flushed = RefCell::new(Vec::new());
 
         wr.wrap_str("\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
@@ -588,7 +685,7 @@ mod tests {
         use std::cell::RefCell;
         let font = test_font().unwrap();
         let sm = Smusher::new(&font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(sm, Control::default(), 80, Align::Left);
         let flushed = RefCell::new(Vec::new());
 
         wr.wrap_str("hello\n", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
@@ -619,7 +716,7 @@ mod tests {
         // Uses test font where each character renders to exactly 1 char width.
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/tests/fixtures/test.flf").unwrap();
         let sm = Smusher::new(&font);
-        let mut wr = Wrapper::new(sm, 5, Align::Left);
+        let mut wr = Wrapper::new(sm, Control::default(), 5, Align::Left);
         let flushed = RefCell::new(Vec::new());
         let flush_count = RefCell::new(0usize);
 
@@ -642,7 +739,7 @@ mod tests {
     fn test_wrap_codes_basic() {
         let font = test_font().unwrap();
         let sm = Smusher::new(&font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(sm, Control::default(), 80, Align::Left);
         let flushed = RefCell::new(Vec::new());
 
         // "Hi" as codes: 72, 105
@@ -657,7 +754,7 @@ mod tests {
     fn test_wrap_codes_with_newline() {
         let font = test_font().unwrap();
         let sm = Smusher::new(&font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(sm, Control::default(), 80, Align::Left);
         let flushed = RefCell::new(Vec::new());
 
         // "Hi\n" as codes: 72, 105, 10
@@ -671,9 +768,123 @@ mod tests {
     #[test]
     fn test_push_codes() {
         let font = test_font().unwrap();
-        let mut wr = Wrapper::new(Smusher::new(&font), 80, Align::Left);
+        let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Left);
 
         wr.push_codes(&[72, 105]).unwrap(); // "Hi"
         assert!(!wr.is_empty());
+    }
+
+    #[test]
+    fn test_write_line_basic() {
+        let font = test_font().unwrap();
+        let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Left);
+        let flushed = RefCell::new(Vec::new());
+
+        let output = wr.write_line(
+            "Hi",
+            &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()),
+        );
+
+        // No intermediate flushes expected
+        assert!(flushed.borrow().is_empty());
+        assert!(!output.is_empty());
+    }
+
+    #[test]
+    fn test_write_line_empty() {
+        let font = test_font().unwrap();
+        let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Left);
+
+        let output = wr.write_line("", &|_lines| {});
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn test_write_paragraph_joins_with_space() {
+        let font = test_font().unwrap();
+        let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Left);
+        let flushed = RefCell::new(Vec::new());
+
+        let print_fn = |lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
+        wr.write_paragraph("Hi", &print_fn);
+        wr.write_paragraph("World", &print_fn);
+
+        // Nothing flushed yet
+        assert!(flushed.borrow().is_empty());
+        // Buffer has accumulated content
+        assert!(!wr.is_empty());
+    }
+
+    #[test]
+    fn test_write_paragraph_blank_line_flushes() {
+        let font = test_font().unwrap();
+        let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Left);
+        let flushed = RefCell::new(Vec::new());
+
+        let print_fn = |lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
+        wr.write_paragraph("Hi", &print_fn);
+        wr.write_paragraph("", &print_fn); // blank line
+
+        // Should have flushed once
+        assert_eq!(flushed.borrow().len(), 1);
+    }
+
+    #[test]
+    fn test_write_paragraph_leading_space_flushes() {
+        let font = test_font().unwrap();
+        let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Left);
+        let flushed = RefCell::new(Vec::new());
+
+        let print_fn = |lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
+        wr.write_paragraph("Hi", &print_fn);
+        wr.write_paragraph(" World", &print_fn);
+
+        // Should have flushed once
+        assert_eq!(flushed.borrow().len(), 1);
+    }
+
+    #[test]
+    fn test_flush_paragraph_eof_empty() {
+        let font = test_font().unwrap();
+        let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Left);
+        let flushed = RefCell::new(Vec::new());
+
+        wr.flush_paragraph_eof(
+            &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()),
+        );
+        assert!(flushed.borrow().is_empty());
+    }
+
+    #[test]
+    fn test_flush_paragraph_eof_with_content() {
+        let font = test_font().unwrap();
+        let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Left);
+        let flushed = RefCell::new(Vec::new());
+
+        let print_fn = |lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
+        wr.write_paragraph("Hi", &print_fn);
+        wr.flush_paragraph_eof(&print_fn);
+
+        assert_eq!(flushed.borrow().len(), 1);
+    }
+
+    #[test]
+    fn test_is_whitespace_code() {
+        assert!(is_whitespace_code(32)); // space
+        assert!(is_whitespace_code(9)); // tab
+        assert!(is_whitespace_code(10)); // LF
+        assert!(is_whitespace_code(11)); // VT
+        assert!(is_whitespace_code(12)); // FF
+        assert!(is_whitespace_code(13)); // CR
+        assert!(!is_whitespace_code(65)); // 'A'
+        assert!(!is_whitespace_code(0)); // NUL
+    }
+
+    #[test]
+    fn test_is_blank_codes() {
+        assert!(is_blank_codes(&[]));
+        assert!(is_blank_codes(&[32, 9, 10, 13]));
+        assert!(!is_blank_codes(&[65]));
+        assert!(!is_blank_codes(&[32, 65]));
     }
 }

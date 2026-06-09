@@ -72,15 +72,41 @@ fn run() -> Result<Vec<String>, figdriver::Error> {
 For word-wrapping and text alignment, use `Wrapper`:
 
 ```rust
-use figdriver::{FIGfont, Smusher, Wrapper, Align};
+use figdriver::{FIGfont, Smusher, Wrapper, Align, Control};
 
 let font = FIGfont::from_path("fonts/small.flf")?;
-let mut wr = Wrapper::new(Smusher::new(&font), 80, Align::Center);
-wr.wrap_str("Hello world", &|lines| {
+let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Center);
+let print_fn = |lines: &[String]| {
     for line in lines {
         println!("{}", line);
     }
-});
+};
+wr.wrap_str("Hello world", &print_fn);
+```
+
+For line mode and paragraph mode rendering, `Wrapper` provides dedicated methods
+that accept bytes directly (decoded internally by the control):
+
+```rust
+use figdriver::{FIGfont, Smusher, Wrapper, Align, Control};
+
+let font = FIGfont::from_path("fonts/standard.flf")?;
+let control = Control::default();
+let mut wr = Wrapper::new(Smusher::builder(&font).build(), control, 80, Align::Left);
+let print_fn = |lines: &[String]| {
+    for line in lines {
+        println!("{}", line);
+    }
+};
+
+// Line mode: each line is rendered independently
+let output = wr.write_line("Hello", &print_fn);
+
+// Paragraph mode: joins lines with spaces, blank lines cause hard breaks.
+// Trailing newlines are handled automatically.
+wr.write_paragraph("Hello\n", &print_fn);
+wr.write_paragraph("world\n", &print_fn);
+wr.flush_paragraph_eof(&print_fn);
 ```
 
 For character-mapping control files (`.flc`), use `Control`:
