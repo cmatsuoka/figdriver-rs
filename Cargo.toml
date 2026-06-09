@@ -9,27 +9,15 @@ license = "MIT"
 keywords = ["ascii", "ascii-art", "terminal"]
 readme = "README.md"
 include = [
-        "Cargo.toml",
-        "Cargo.lock",
-        "README.md",
-        "LICENSE",
-        "src/**",
-        "tests/**",
-        "fonts/small.flf",
-        "fonts/banner.flf",
-        "fonts/standard.flf",
-        "fonts/frango.flc",
-        "fonts/upper.flc",
-        "fonts/utf8.flc",
-        "fonts/hz.flc",
-        "fonts/646-de.flc",
-        "fonts/jis0201.flc",
-]
-exclude = [
-        ".*",
-        "*.md",
-        "*.txt",
-        "figlet-*",
+        "/Cargo.toml",
+        "/Cargo.lock",
+        "/README.md",
+        "/LICENSE",
+        "/src/**",
+        "/tests/**",
+        "/examples/**",
+        "/fonts/*.flf",
+        "/fonts/*.flc",
 ]
 categories = ["text-processing", "command-line-utilities"]
 

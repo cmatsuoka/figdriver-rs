@@ -410,9 +410,7 @@ fn run_figlet_render(path: &Path, msg: String, cfg: &RunConfig, control: &Contro
             let n = input.read_until(b'\n', &mut buf)?;
             if n == 0 { break; }
             let line = String::from_utf8_lossy(&buf);
-            for output_line in wr.write_line(&line, &print_fn) {
-                println!("{}", output_line);
-            }
+            wr.write_line(&line, &print_fn);
         }
     }
 

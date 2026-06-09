@@ -323,15 +323,15 @@ impl<'a> Wrapper<'a> {
     /// Render a string in line mode.
     ///
     /// Decodes the string using the control, clears the buffer, tokenizes and wraps,
-    /// and flushes if buffer non-empty. Returns the rendered output lines.
-    pub fn write_line(&mut self, s: &str, print_fn: &dyn Fn(&[String])) -> Vec<String> {
+   /// and flushes all rendered lines through the print callback.
+    pub fn write_line(&mut self, s: &str, print_fn: &dyn Fn(&[String])) {
         let codes = self.decoder.decode_bytes(s.as_bytes());
         self.clear();
         self.write_tokens(&codes, print_fn);
-        if self.is_empty() {
-            return Vec::new();
+        if !self.is_empty() {
+            print_fn(&self.get());
+            self.clear();
         }
-        self.get()
     }
 
     /// Render a string in paragraph mode.
@@ -781,23 +781,26 @@ mod tests {
         let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Left);
         let flushed = RefCell::new(Vec::new());
 
-        let output = wr.write_line(
+        wr.write_line(
             "Hi",
             &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()),
         );
 
-        // No intermediate flushes expected
-        assert!(flushed.borrow().is_empty());
-        assert!(!output.is_empty());
+        // All output goes through the callback
+        let flushed = flushed.borrow();
+        assert_eq!(flushed.len(), 1);
+        assert!(!flushed[0].is_empty());
     }
 
     #[test]
     fn test_write_line_empty() {
         let font = test_font().unwrap();
         let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Left);
+        let flushed = RefCell::new(Vec::new());
 
-        let output = wr.write_line("", &|_lines| {});
-        assert!(output.is_empty());
+        wr.write_line("", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
+        let flushed = flushed.borrow();
+        assert!(flushed.is_empty());
     }
 
     #[test]

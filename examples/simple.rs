@@ -28,9 +28,7 @@ fn run() -> Result<(), figdriver::Error> {
     // write_line handles clear, tokenization, and flush internally.
     let input = io::BufReader::new(io::stdin());
     for line in input.lines() {
-        for out in wr.write_line(&line?, &print_fn) {
-            println!("{}", out);
-        }
+        wr.write_line(&line?, &print_fn);
     }
     Ok(())
 }
