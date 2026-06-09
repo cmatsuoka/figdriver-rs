@@ -119,31 +119,11 @@ fn render_font(font_dir: &str, font_name: &str, word: &str) {
         .build();
 
     let mut wr = figdriver::Wrapper::new(sm, figdriver::Control::default(), 80 - 1, figdriver::Align::Left);
-    write_line(&mut wr, word);
+    let print_fn = print_output;
 
-    if !wr.is_empty() {
-        let output = wr.get();
-        for line in output {
-            println!("{}", line);
-        }
-    }
-}
-
-fn write_line(wr: &mut figdriver::Wrapper, s: &str) {
-    let mut chars = s.char_indices().peekable();
-    let mut start = 0;
-
-    while let Some((_, c)) = chars.next() {
-        let is_ws = c.is_whitespace();
-        while let Some(&(_, next_c)) = chars.peek() {
-            if next_c.is_whitespace() != is_ws || (is_ws && next_c != ' ') {
-                break;
-            }
-            chars.next();
-        }
-        let end = chars.peek().map_or(s.len(), |&(idx, _)| idx);
-        wr.wrap_str(&s[start..end], &print_output);
-        start = end;
+    let output = wr.write_line(word, &print_fn);
+    for line in output {
+        println!("{}", line);
     }
 }
 

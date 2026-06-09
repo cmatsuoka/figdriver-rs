@@ -145,7 +145,7 @@ impl<'a> Wrapper<'a> {
     ///
     /// If adding the code results in a line wider than the maximum number of columns,
     /// the code is not added to the output buffer and a LineFull error is returned.
-    pub fn push_code(&mut self, code: i32) -> Result<(), Error> {
+    fn push_code(&mut self, code: i32) -> Result<(), Error> {
         let rendered = self.sm.push_code(code);
 
         if self.sm.len() > self.width {
@@ -168,7 +168,7 @@ impl<'a> Wrapper<'a> {
     ///
     /// If adding the codes results in a line wider than the maximum number of columns,
     /// the codes are not added to the output buffer and a LineFull error is returned.
-    pub fn push_codes(&mut self, codes: &[i32]) -> Result<(), Error> {
+    fn push_codes(&mut self, codes: &[i32]) -> Result<(), Error> {
         let buf_len = self.buffer.len();
         for &code in codes {
             let rendered = self.sm.push_code(code);
@@ -219,7 +219,7 @@ impl<'a> Wrapper<'a> {
     /// Explicit newline codes (10) in the input force a flush of the current
     /// buffer, starting a new output line (figfont.txt lines 1617-1621).
     /// Carriage return codes (13) are normalized to newline (10).
-    pub fn wrap_codes(&mut self, codes: &[i32], flush: &dyn Fn(&[String])) {
+    fn wrap_codes(&mut self, codes: &[i32], flush: &dyn Fn(&[String])) {
         // Normalize CR to LF: convert \r\n -> \n and bare \r -> \n
         let normalized: Vec<i32> = normalize_newlines(codes);
 
@@ -250,7 +250,8 @@ impl<'a> Wrapper<'a> {
     ///
     /// Explicit newline characters ('\n') in the input force a flush of the current
     /// buffer, starting a new output line (figfont.txt lines 1617-1621).
-    pub fn wrap_str(&mut self, s: &str, flush: &dyn Fn(&[String])) {
+    #[allow(dead_code)]
+    fn wrap_str(&mut self, s: &str, flush: &dyn Fn(&[String])) {
         self.wrap_codes(&codes_from_str(s), flush);
     }
 
