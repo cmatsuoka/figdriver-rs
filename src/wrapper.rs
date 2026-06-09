@@ -25,7 +25,7 @@ pub struct Wrapper<'a> {
     sm                   : Smusher<'a>,      // the FIGcharacter smusher
     buffer               : Vec<i32>,         // buffer to keep our input codes
     pending_space        : Option<Vec<i32>>, // accumulated whitespace codes to commit with next word
-    width                : usize,            // terminal width
+    max_width            : usize,            // terminal width
     align                : Align,            // text alignment
     had_trailing_newline : bool,             // tracks if last write_paragraph had trailing newline
     control              : Control,          // control for decoding input bytes
@@ -47,10 +47,10 @@ impl<'a> Wrapper<'a> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(sm: Smusher<'a>, control: Control, width: usize, align: Align) -> Self {
+    pub fn new(sm: Smusher<'a>, control: Control, max_width: usize, align: Align) -> Self {
         Wrapper{
             sm,
-            width,
+            max_width,
             buffer                : Vec::new(),
             align,
             pending_space         : None,
@@ -64,9 +64,9 @@ impl<'a> Wrapper<'a> {
         self.align
     }
 
-    /// Return the width limit.
-    pub fn width(&self) -> usize {
-        self.width
+    /// Return the maximum width limit.
+    pub fn max_width(&self) -> usize {
+        self.max_width
     }
 
     /// Clear the output buffer.
@@ -103,8 +103,8 @@ impl<'a> Wrapper<'a> {
             self.push_codes(&sp).ok();
         }
 
-        if self.len() > self.width {
-            self.sm.trim(self.width);
+        if self.width() > self.max_width {
+            self.sm.trim(self.max_width);
         }
 
         let mut v = self.sm.get_raw();
@@ -120,7 +120,7 @@ impl<'a> Wrapper<'a> {
         }
         self.sm.replace_hardblanks(&mut v);
 
-        let w = self.width.saturating_sub(max_w);
+        let w = self.max_width.saturating_sub(max_w);
 
         match self.align {
             Align::Left   => v.to_vec(),
@@ -129,9 +129,9 @@ impl<'a> Wrapper<'a> {
         }
     }
 
-    /// Get the length in sub-characters of the current output buffer.
-    pub fn len(&self) -> usize {
-        self.sm.len()
+    /// Get the width in screen columns of the current output buffer.
+    pub fn width(&self) -> usize {
+        self.sm.width()
     }
 
     /// Verify whether the output buffer is empty.
@@ -148,7 +148,7 @@ impl<'a> Wrapper<'a> {
     fn push_code(&mut self, code: i32) -> Result<(), Error> {
         let rendered = self.sm.push_code(code);
 
-        if self.sm.len() > self.width {
+        if self.sm.width() > self.max_width {
             self.sm.clear();
             for &c in &self.buffer {
                 self.sm.push_code(c);
@@ -177,7 +177,7 @@ impl<'a> Wrapper<'a> {
             }
         }
 
-        if self.sm.len() > self.width {
+        if self.sm.width() > self.max_width {
             self.sm.clear();
             self.buffer.truncate(buf_len);
             for &c in &self.buffer {
@@ -369,7 +369,7 @@ impl<'a> Wrapper<'a> {
     /// If buffer empty: no-op.
     /// If last line had a trailing newline: pushes space to preserve trailing whitespace, then flushes.
     /// Prints flushed lines via `print_fn`.
-    pub fn flush_paragraph_eof(&mut self, print_fn: &dyn Fn(&[String])) {
+    pub fn flush_paragraph(&mut self, print_fn: &dyn Fn(&[String])) {
         if self.is_empty() {
             return;
         }
@@ -844,26 +844,26 @@ mod tests {
     }
 
     #[test]
-    fn test_flush_paragraph_eof_empty() {
+    fn test_flush_paragraph_empty() {
         let font = test_font().unwrap();
         let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Left);
         let flushed = RefCell::new(Vec::new());
 
-        wr.flush_paragraph_eof(
+        wr.flush_paragraph(
             &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()),
         );
         assert!(flushed.borrow().is_empty());
     }
 
     #[test]
-    fn test_flush_paragraph_eof_with_content() {
+    fn test_flush_paragraph_with_content() {
         let font = test_font().unwrap();
         let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Left);
         let flushed = RefCell::new(Vec::new());
 
         let print_fn = |lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
         wr.write_paragraph("Hi", &print_fn);
-        wr.flush_paragraph_eof(&print_fn);
+        wr.flush_paragraph(&print_fn);
 
         assert_eq!(flushed.borrow().len(), 1);
     }

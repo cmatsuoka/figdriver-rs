@@ -41,7 +41,7 @@ fn run() -> Result<(), figdriver::Error> {
         let line = String::from_utf8_lossy(&buf);
         wr.write_paragraph(&line, &print_fn);
     }
-    wr.flush_paragraph_eof(&print_fn);
+    wr.flush_paragraph(&print_fn);
 
     Ok(())
 }

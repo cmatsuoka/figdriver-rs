@@ -106,7 +106,7 @@ let output = wr.write_line("Hello", &print_fn);
 // Trailing newlines are handled automatically.
 wr.write_paragraph("Hello\n", &print_fn);
 wr.write_paragraph("world\n", &print_fn);
-wr.flush_paragraph_eof(&print_fn);
+wr.flush_paragraph(&print_fn);
 ```
 
 For character-mapping control files (`.flc`), use `Control`:
