@@ -278,8 +278,8 @@ impl<'a> Smusher<'a> {
         }
     }
 
-    /// Obtain the size, in sub-characters, of any line of the output buffer.
-    pub fn len(&self) -> usize {
+    /// Obtain the width, in screen columns, of the output buffer.
+    pub fn width(&self) -> usize {
         let s: &str = &self.output[0];
         display_width(s)
     }
@@ -427,16 +427,16 @@ mod tests {
         assert!(!sm.is_empty());
     }
 
-    // len() tracks character count through push and clear
+    // width() tracks character count through push and clear
     #[test]
-    fn test_smusher_len() {
+    fn test_smusher_width() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
         let mut sm = Smusher::new(&font);
-        assert_eq!(sm.len(), 0);
+        assert_eq!(sm.width(), 0);
         sm.push('A');
-        assert!(sm.len() > 0);
+        assert!(sm.width() > 0);
         sm.clear();
-        assert_eq!(sm.len(), 0);
+        assert_eq!(sm.width(), 0);
     }
 
     // push_str() appends multiple characters at once
@@ -484,10 +484,10 @@ mod tests {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
         let mut sm = Smusher::new(&font);
         sm.push_str("ABC");
-        let len_before = sm.len();
+        let width_before = sm.width();
         sm.trim(2);
-        assert_eq!(sm.len(), 2);
-        assert!(sm.len() < len_before);
+        assert_eq!(sm.width(), 2);
+        assert!(sm.width() < width_before);
     }
 
     // full_width mode inserts space between characters

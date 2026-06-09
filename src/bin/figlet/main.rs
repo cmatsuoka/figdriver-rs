@@ -403,7 +403,7 @@ fn run_figlet_render(path: &Path, msg: String, cfg: &RunConfig, control: &Contro
             let line = String::from_utf8_lossy(&buf);
             wr.write_paragraph(&line, &print_fn);
         }
-        wr.flush_paragraph_eof(&print_fn);
+        wr.flush_paragraph(&print_fn);
     } else {
         loop {
             buf.clear();
