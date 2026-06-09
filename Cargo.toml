@@ -25,6 +25,12 @@ include = [
         "fonts/646-de.flc",
         "fonts/jis0201.flc",
 ]
+exclude = [
+        ".*",
+        "*.md",
+        "*.txt",
+        "figlet-*",
+]
 categories = ["text-processing", "command-line-utilities"]
 
 [lib]

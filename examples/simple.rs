@@ -1,10 +1,10 @@
 use std::io::{self, BufRead};
-use figdriver::{FIGfont, Smusher, Wrapper, Align};
+use figdriver::{Align, Control, FIGfont, Smusher, Wrapper};
 
 fn main() {
     match run() {
-        Ok(_)  => {},
-        Err(e) => println!("Error: {}", e),
+        Ok(_) => {}
+        Err(e) => eprintln!("Error: {}", e),
     }
 }
 
@@ -14,20 +14,23 @@ fn main() {
 fn run() -> Result<(), figdriver::Error> {
     let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/small.flf";
     let font = FIGfont::from_path(&path)?;
-    let mut wr = Wrapper::new(Smusher::new(&font), 78, Align::Left);
+    let control = Control::default();
 
-    // Read input from stdin send it to our line wrapper
+    let mut wr = Wrapper::new(Smusher::new(&font), control, 78, Align::Left);
+
+    let print_fn = |lines: &[String]| {
+        for line in lines {
+            println!("{}", line);
+        }
+    };
+
+    // Read input from stdin and render each line independently.
+    // write_line handles clear, tokenization, and flush internally.
     let input = io::BufReader::new(io::stdin());
     for line in input.lines() {
-        wr.clear();
-        line?.split_whitespace().for_each(|x| {wr.wrap_str(x, &print_output);});
-        print_output(&wr.get());
+        for out in wr.write_line(&line?, &print_fn) {
+            println!("{}", out);
+        }
     }
     Ok(())
-}
-
-fn print_output(v: &[String]) {
-    for x in v {
-        println!("{}", x);
-    }
 }

@@ -146,11 +146,11 @@ fn run_figlet() -> Result<(), Error> {
         .map_err(|e| Error::Cli(e.to_string()))?;
 
     let layout_mode_flag = args.last_of(&[
-        (figdriver::LayoutMode::SmushForce,  &["-S", "--smush"]),
+        (figdriver::LayoutMode::SmushForce,   &["-S", "--smush"]),
         (figdriver::LayoutMode::SmushDefault, &["-s", "--smush-default"]),
-        (figdriver::LayoutMode::Overlap,     &["-o", "--overlap"]),
-        (figdriver::LayoutMode::Kern,        &["-k", "--kern"]),
-        (figdriver::LayoutMode::FullWidth,   &["-W", "--full-width"]),
+        (figdriver::LayoutMode::Overlap,      &["-o", "--overlap"]),
+        (figdriver::LayoutMode::Kern,         &["-k", "--kern"]),
+        (figdriver::LayoutMode::FullWidth,    &["-W", "--full-width"]),
     ]);
 
     let m_idx = args.last_index_of(&["-m", "--layout-mode"]);
@@ -361,9 +361,9 @@ fn run_figlet_render(path: &Path, msg: String, cfg: &RunConfig, control: &Contro
     };
 
     let justify_align = match cfg.justify {
-        Justify::Left => figdriver::Align::Left,
-        Justify::Right => figdriver::Align::Right,
-        Justify::Center => figdriver::Align::Center,
+        Justify::Left    => figdriver::Align::Left,
+        Justify::Right   => figdriver::Align::Right,
+        Justify::Center  => figdriver::Align::Center,
         Justify::Default => if resolved_rtl {
             figdriver::Align::Right
         } else {
@@ -379,7 +379,7 @@ fn run_figlet_render(path: &Path, msg: String, cfg: &RunConfig, control: &Contro
 
     // Subtract 1 from width to match figlet's quirk: figlet treats `-w N` as
     // "allow lines up to N-1 characters" rather than N characters.
-    let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1, justify_align);
+    let mut wr = figdriver::Wrapper::new(sm, control.clone(), cfg.width - 1, justify_align);
 
     let source: Box<dyn io::Read> = if !msg.is_empty() {
         Box::new(io::Cursor::new(msg))
@@ -389,136 +389,32 @@ fn run_figlet_render(path: &Path, msg: String, cfg: &RunConfig, control: &Contro
     let mut input = io::BufReader::new(source);
 
     let mut buf = Vec::new();
+    let print_fn = |lines: &[String]| {
+        for line in lines {
+            println!("{}", line);
+        }
+    };
+
     if cfg.paragraph {
-        let mut had_trailing_newline = false;
         loop {
             buf.clear();
             let n = input.read_until(b'\n', &mut buf)?;
             if n == 0 { break; }
-            had_trailing_newline = buf.ends_with(b"\n") || buf.ends_with(b"\r");
-            while buf.ends_with(b"\n") || buf.ends_with(b"\r") {
-                buf.pop();
-            }
-            let codes = control.decode_bytes(&buf);
-            write_paragraph_codes(&mut wr, &codes);
+            let line = String::from_utf8_lossy(&buf);
+            wr.write_paragraph(&line, &print_fn);
         }
-        flush_paragraph_eof(&mut wr, had_trailing_newline);
+        wr.flush_paragraph_eof(&print_fn);
     } else {
         loop {
             buf.clear();
             let n = input.read_until(b'\n', &mut buf)?;
             if n == 0 { break; }
-            let codes = control.decode_bytes(&buf);
-            write_line_codes(&mut wr, &codes);
+            let line = String::from_utf8_lossy(&buf);
+            for output_line in wr.write_line(&line, &print_fn) {
+                println!("{}", output_line);
+            }
         }
     }
 
     Ok(())
-}
-
-fn is_ws_code(code: i32) -> bool {
-    code == 32 || code == 9 || code == 10 || code == 13
-}
-
-fn is_blank_codes(codes: &[i32]) -> bool {
-    codes.iter().all(|&code| is_ws_code(code))
-}
-
-fn write_tokens_codes(wr: &mut figdriver::Wrapper, codes: &[i32]) {
-    let mut indices = codes.iter().enumerate().peekable();
-    let mut start = 0;
-
-    while let Some((_i, &code)) = indices.next() {
-        let is_ws = is_ws_code(code);
-        let is_space = code == 32;
-        while let Some(&(_j, &next_code)) = indices.peek() {
-            let next_ws = is_ws_code(next_code);
-            let next_space = next_code == 32;
-            if next_ws != is_ws || (is_ws && next_space != is_space) {
-                break;
-            }
-            indices.next();
-        }
-        let end = indices.peek().map_or(codes.len(), |(idx, _)| *idx);
-        wr.wrap_codes(&codes[start..end], &print_output);
-        start = end;
-    }
-}
-
-fn write_line_codes(wr: &mut figdriver::Wrapper, codes: &[i32]) {
-    wr.clear();
-    write_tokens_codes(wr, codes);
-    if !wr.is_empty() {
-        print_output(&wr.get());
-    }
-}
-
-fn write_paragraph_codes(wr: &mut figdriver::Wrapper, codes: &[i32]) {
-    if !wr.is_empty() {
-        if is_blank_codes(codes) || (codes.first() == Some(&32)) {
-            print_output(&wr.get());
-            wr.clear();
-        } else {
-            wr.wrap_codes(&[32], &print_output);
-        }
-    }
-    if !is_blank_codes(codes) {
-        write_tokens_codes(wr, codes);
-    }
-}
-
-fn print_output(v: &[String]) {
-    for x in v {
-        println!("{}", x);
-    }
-}
-
-fn flush_paragraph_eof(wr: &mut figdriver::Wrapper, has_trailing_newline: bool) {
-    if wr.is_empty() {
-        return;
-    }
-    if has_trailing_newline {
-        wr.push_str(" ").ok();
-    }
-    print_output(&wr.get());
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn is_blank_codes_empty() {
-        assert!(is_blank_codes(&[]));
-    }
-
-    #[test]
-    fn is_blank_codes_spaces_only() {
-        assert!(is_blank_codes(&[32, 32, 32]));
-    }
-
-    #[test]
-    fn is_blank_codes_newlines_only() {
-        assert!(is_blank_codes(&[10, 13]));
-    }
-
-    #[test]
-    fn is_blank_codes_tabs_only() {
-        assert!(is_blank_codes(&[9, 9]));
-    }
-
-    #[test]
-    fn is_blank_codes_mixed_whitespace() {
-        assert!(is_blank_codes(&[32, 9, 10, 13]));
-    }
-
-    #[test]
-    fn is_blank_codes_has_text() {
-        assert!(!is_blank_codes(&[65, 32]));
-    }
-
-    #[test]
-    fn is_blank_codes_only_text() {
-        assert!(!is_blank_codes(&[65, 66, 67]));
-    }
 }

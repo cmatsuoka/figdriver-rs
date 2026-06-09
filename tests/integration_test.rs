@@ -11,6 +11,7 @@ macro_rules! new_smusher {
         let $font = load_font($path);
         let mut $wr = figdriver::Wrapper::new(
             figdriver::Smusher::new(&$font),
+            figdriver::Control::default(),
             $width,
             $align,
         );
@@ -21,6 +22,7 @@ macro_rules! new_smusher {
             figdriver::Smusher::builder(&$font)
                 .layout_mode($mode)
                 .build(),
+            figdriver::Control::default(),
             $width,
             $align,
         );
@@ -31,6 +33,7 @@ macro_rules! new_smusher {
             figdriver::Smusher::builder(&$font)
                 .right_to_left(true)
                 .build(),
+            figdriver::Control::default(),
             $width,
             $align,
         );
@@ -42,6 +45,7 @@ macro_rules! new_smusher {
                 .layout_mode($mode)
                 .right_to_left(true)
                 .build(),
+            figdriver::Control::default(),
             $width,
             $align,
         );
@@ -311,7 +315,7 @@ fn flc_all_chars_skipped_produces_no_output() {
     let sm = figdriver::Smusher::builder(&font)
         .control(Some(&pipeline))
         .build();
-    let mut wr = figdriver::Wrapper::new(sm, 80, figdriver::Align::Left);
+    let mut wr = figdriver::Wrapper::new(sm, pipeline.clone(), 80, figdriver::Align::Left);
     assert!(wr.push_str("Test").is_ok());
     assert!(wr.is_empty());
     let output = wr.get();

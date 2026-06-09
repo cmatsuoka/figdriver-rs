@@ -118,7 +118,7 @@ fn render_font(font_dir: &str, font_name: &str, word: &str) {
         .right_to_left(font.right_to_left)
         .build();
 
-    let mut wr = figdriver::Wrapper::new(sm, 80 - 1, figdriver::Align::Left);
+    let mut wr = figdriver::Wrapper::new(sm, figdriver::Control::default(), 80 - 1, figdriver::Align::Left);
     write_line(&mut wr, word);
 
     if !wr.is_empty() {
