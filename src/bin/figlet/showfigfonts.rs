@@ -121,10 +121,7 @@ fn render_font(font_dir: &str, font_name: &str, word: &str) {
     let mut wr = figdriver::Wrapper::new(sm, figdriver::Control::default(), 80 - 1, figdriver::Align::Left);
     let print_fn = print_output;
 
-    let output = wr.write_line(word, &print_fn);
-    for line in output {
-        println!("{}", line);
-    }
+    wr.write_line(word, &print_fn);
 }
 
 fn print_output(v: &[String]) {

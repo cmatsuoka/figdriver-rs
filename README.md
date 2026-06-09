@@ -100,7 +100,7 @@ let print_fn = |lines: &[String]| {
 };
 
 // Line mode: each line is rendered independently
-let output = wr.write_line("Hello", &print_fn);
+wr.write_line("Hello", &print_fn);
 
 // Paragraph mode: joins lines with spaces, blank lines cause hard breaks.
 // Trailing newlines are handled automatically.
