@@ -840,6 +840,17 @@ mod tests {
     }
 
     #[test]
+    fn streaming_hz_mode_switch_only_line_persists() {
+        // Line 1 contains only ~{ (mode switch, no character output),
+        // line 2 should still be decoded in two-byte mode
+        let mut dec = StreamingDecoder::new(InputEncoding::HZ, None);
+        let line1 = dec.decode_bytes(&[b'~', b'{']);
+        let line2 = dec.decode_bytes(&[0xA1, 0xA2]);
+        assert_eq!(line1, vec![]);
+        assert_eq!(line2, vec![0xA1A2]);
+    }
+
+    #[test]
     fn streaming_hz_exit_mode_persists_across_lines() {
         // ~} on line 2 should exit two-byte mode started on line 1
         let mut dec = StreamingDecoder::new(InputEncoding::HZ, None);
@@ -911,6 +922,32 @@ mod tests {
         let mut dec = StreamingDecoder::new(InputEncoding::ISO2022, None);
         let result = dec.decode_bytes(&[0x1B, b'+', b'E', 0x1B, b'O', b'A', b'B']);
         assert_eq!(result, vec![0x450041, 0x42]);
+    }
+
+    #[test]
+    fn streaming_iso2022_single_shift_crosses_line_boundary() {
+        // 0x8E (SS2) on line 1 with no following character,
+        // should apply to the first character on line 2
+        // Designate G2 with ESC * K (0x4B), then 0x8E on line 1,
+        // gn[2] = 0x4B0000, so 'A' -> 0x4B0041 on line 2
+        let mut dec = StreamingDecoder::new(InputEncoding::ISO2022, None);
+        let line1 = dec.decode_bytes(&[0x1B, b'*', b'K', 0x8E]);
+        let line2 = dec.decode_bytes(&[b'A', b'B']);
+        assert_eq!(line1, vec![]);
+        assert_eq!(line2, vec![0x4B0041, 0x42]);
+    }
+
+    #[test]
+    fn streaming_iso2022_ss2_crosses_line_boundary() {
+        // ESC N (SS2) on line 1 with no following character,
+        // should apply to the first character on line 2
+        // Designate G2 with ESC * L (0x4C), then ESC N on line 1,
+        // gn[2] = 0x4C0000, so 'A' -> 0x4C0041 on line 2
+        let mut dec = StreamingDecoder::new(InputEncoding::ISO2022, None);
+        let line1 = dec.decode_bytes(&[0x1B, b'*', b'L', 0x1B, b'N']);
+        let line2 = dec.decode_bytes(&[b'A', b'B']);
+        assert_eq!(line1, vec![]);
+        assert_eq!(line2, vec![0x4C0041, 0x42]);
     }
 
     #[test]
