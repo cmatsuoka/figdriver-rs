@@ -222,6 +222,281 @@ impl EncodingDecoder<'_> {
     }
 }
 
+/// Persistent decoder state for ISO 2022 encoding, preserved across calls.
+#[derive(Clone, Debug)]
+struct Iso2022State {
+    gn: [i32; 4],
+    gndbl: [bool; 4],
+    gl: usize,
+    gr: usize,
+    single_shift: Option<usize>,
+}
+
+impl Default for Iso2022State {
+    fn default() -> Self {
+        Self {
+            gn: [0, 0x80, 0, 0],
+            gndbl: [false; 4],
+            gl: 0,
+            gr: 1,
+            single_shift: None,
+        }
+    }
+}
+
+/// Mutable decode context for ISO 2022, used within a single decode_bytes call.
+struct Iso2022DecodeCtx {
+    gn: [i32; 4],
+    gndbl: [bool; 4],
+    gl: usize,
+    gr: usize,
+    single_shift: Option<usize>,
+    pos: usize,
+}
+
+impl Iso2022State {
+    fn from_settings(settings: &Iso2022Settings) -> Self {
+        let mut gn = [0i32; 4];
+        let mut gndbl = [false; 4];
+        for (i, gset) in settings.g_sets.iter().enumerate() {
+            if let Some(gs) = gset {
+                gn[i] = gs.base_code;
+                gndbl[i] = gs.double_byte;
+            }
+        }
+        Self {
+            gn,
+            gndbl,
+            gl: settings.left_half,
+            gr: settings.right_half,
+            single_shift: None,
+        }
+    }
+}
+
+/// Streaming decoder that preserves state across multiple `decode_bytes` calls.
+///
+/// Unlike `EncodingDecoder` which creates a fresh decoder per call, this type
+/// maintains decoder state (HZ two-byte flag, ISO 2022 G-register assignments)
+/// so that stateful encodings work correctly across line boundaries.
+#[derive(Debug)]
+pub(crate) struct StreamingDecoder {
+    encoding: InputEncoding,
+    /// For HZ encoding: are we currently in two-byte mode?
+    hz_two_byte: bool,
+    /// For ISO 2022 encoding: persistent G-register state.
+    iso2022_state: Iso2022State,
+}
+
+impl StreamingDecoder {
+    /// Create a new streaming decoder for the given encoding and ISO 2022 settings.
+    pub(super) fn new(encoding: InputEncoding, iso2022: Option<&Iso2022Settings>) -> Self {
+        Self {
+            encoding,
+            hz_two_byte: false,
+            iso2022_state: iso2022.map(Iso2022State::from_settings).unwrap_or_default(),
+        }
+    }
+
+    /// Decode a slice of bytes into character codes, preserving decoder state.
+    pub(crate) fn decode_bytes(&mut self, bytes: &[u8]) -> Vec<i32> {
+        match self.encoding {
+            InputEncoding::Default | InputEncoding::UTF8 => {
+                EncodingDecoder::new(bytes, InputEncoding::UTF8, None).collect()
+            }
+            InputEncoding::Latin1 => {
+                EncodingDecoder::new(bytes, InputEncoding::Latin1, None).collect()
+            }
+            InputEncoding::Dbcs => {
+                EncodingDecoder::new(bytes, InputEncoding::Dbcs, None).collect()
+            }
+            InputEncoding::ShiftJIS => {
+                EncodingDecoder::new(bytes, InputEncoding::ShiftJIS, None).collect()
+            }
+            InputEncoding::HZ => self.decode_hz(bytes),
+            InputEncoding::ISO2022 => self.decode_iso2022(bytes),
+        }
+    }
+
+    fn decode_hz(&mut self, bytes: &[u8]) -> Vec<i32> {
+        let mut result = Vec::new();
+        let mut pos = 0;
+
+        while pos < bytes.len() {
+            if bytes[pos] == b'~' {
+                pos += 1;
+                if pos >= bytes.len() {
+                    break;
+                }
+                match bytes[pos] {
+                    b'{' => { pos += 1; self.hz_two_byte = true; }
+                    b'}' => { pos += 1; self.hz_two_byte = false; }
+                    b'~' => { pos += 1; result.push('~' as i32); }
+                    _ => { pos += 1; }
+                }
+                continue;
+            }
+
+            if self.hz_two_byte {
+                if pos + 1 < bytes.len() {
+                    let hi = bytes[pos];
+                    let lo = bytes[pos + 1];
+                    pos += 2;
+                    result.push(((hi as i32) << 8) | (lo as i32));
+                } else {
+                    result.push(bytes[pos] as i32);
+                    pos += 1;
+                    self.hz_two_byte = false;
+                }
+            } else {
+                result.push(bytes[pos] as i32);
+                pos += 1;
+            }
+        }
+
+        result
+    }
+
+    fn decode_iso2022(&mut self, bytes: &[u8]) -> Vec<i32> {
+        let mut ctx = Iso2022DecodeCtx {
+            gn: self.iso2022_state.gn,
+            gndbl: self.iso2022_state.gndbl,
+            gl: self.iso2022_state.gl,
+            gr: self.iso2022_state.gr,
+            single_shift: self.iso2022_state.single_shift,
+            pos: 0,
+        };
+        let mut result = Vec::new();
+
+        while ctx.pos < bytes.len() {
+            let ch = bytes[ctx.pos];
+            ctx.pos += 1;
+
+            let handled = match ch {
+                0x0E => { ctx.single_shift = None; ctx.gl = 1; true }
+                0x0F => { ctx.single_shift = None; ctx.gl = 0; true }
+                0x8E => { ctx.single_shift = Some(2); true }
+                0x8F => { ctx.single_shift = Some(3); true }
+                27 => {
+                    ctx.single_shift = None;
+                    if ctx.pos >= bytes.len() { break; }
+                    let second = bytes[ctx.pos];
+                    ctx.pos += 1;
+                    Self::handle_escape_iso2022(bytes, &mut ctx, second)
+                }
+                _ => false,
+            };
+
+            if !handled {
+                if let Some(code) = Self::decode_char_iso2022(bytes, &mut ctx, ch) {
+                    result.push(code);
+                }
+            }
+        }
+
+        self.iso2022_state.gn = ctx.gn;
+        self.iso2022_state.gndbl = ctx.gndbl;
+        self.iso2022_state.gl = ctx.gl;
+        self.iso2022_state.gr = ctx.gr;
+        self.iso2022_state.single_shift = ctx.single_shift;
+
+        result
+    }
+
+    fn handle_escape_iso2022(bytes: &[u8], ctx: &mut Iso2022DecodeCtx, second: u8) -> bool {
+        let (base, third) = if second == b'$' {
+            if ctx.pos >= bytes.len() { return true; }
+            let t = bytes[ctx.pos];
+            ctx.pos += 1;
+            (0x200, Some(t))
+        } else {
+            (0x100, None)
+        };
+        let ch = third.unwrap_or(second);
+
+        match (base, ch) {
+            (0x100, b'N') => { ctx.single_shift = Some(2); }
+            (0x100, b'O') => { ctx.single_shift = Some(3); }
+            (0x100, b'n') => { ctx.gl = 2; }
+            (0x100, b'o') => { ctx.gl = 3; }
+            (0x100, b'~') => { ctx.gr = 1; }
+            (0x100, b'}') => { ctx.gr = 2; }
+            (0x100, b'|') => { ctx.gr = 3; }
+            (0x100, b'(') => { Self::designate_iso2022(bytes, ctx, 0, 94); return true; }
+            (0x100, b')') => { Self::designate_iso2022(bytes, ctx, 1, 94); return true; }
+            (0x100, b'*') => { Self::designate_iso2022(bytes, ctx, 2, 94); return true; }
+            (0x100, b'+') => { Self::designate_iso2022(bytes, ctx, 3, 94); return true; }
+            (0x100, b'-') => { Self::designate_iso2022(bytes, ctx, 1, 96); return true; }
+            (0x100, b'.') => { Self::designate_iso2022(bytes, ctx, 2, 96); return true; }
+            (0x100, b'/') => { Self::designate_iso2022(bytes, ctx, 3, 96); return true; }
+            (0x200, b'(') => { Self::designate_iso2022(bytes, ctx, 0, 9999); return true; }
+            (0x200, b')') => { Self::designate_iso2022(bytes, ctx, 1, 9999); return true; }
+            (0x200, b'*') => { Self::designate_iso2022(bytes, ctx, 2, 9999); return true; }
+            (0x200, b'+') => { Self::designate_iso2022(bytes, ctx, 3, 9999); return true; }
+            _ if base == 0x200 => {
+                ctx.gn[0] = (ch as i32) << 16;
+                ctx.gndbl[0] = true;
+                return true;
+            }
+            _ => {}
+        }
+        true
+    }
+
+    fn designate_iso2022(bytes: &[u8], ctx: &mut Iso2022DecodeCtx, reg: usize, kind: i32) {
+        if ctx.pos >= bytes.len() { return; }
+        let d = bytes[ctx.pos] as i32;
+        ctx.pos += 1;
+        let mut d = d;
+        if (kind == 94 && d == b'B' as i32)
+            || ((kind == 96 || kind == 9999) && d == b'A' as i32)
+        {
+            d = 0;
+        }
+        if kind == 9999 {
+            ctx.gn[reg] = d << 16;
+            ctx.gndbl[reg] = true;
+        } else if kind == 96 {
+            ctx.gn[reg] = (d << 16) | 0x80;
+            ctx.gndbl[reg] = false;
+        } else {
+            ctx.gn[reg] = d << 16;
+            ctx.gndbl[reg] = false;
+        }
+    }
+
+    fn decode_char_iso2022(bytes: &[u8], ctx: &mut Iso2022DecodeCtx, ch: u8) -> Option<i32> {
+        if (0x21..=0x7E).contains(&ch) {
+            let gl_reg = ctx.single_shift.take().unwrap_or(ctx.gl);
+            if ctx.gndbl[gl_reg] {
+                if ctx.pos < bytes.len() {
+                    let ch2 = bytes[ctx.pos] as i32;
+                    ctx.pos += 1;
+                    Some(ctx.gn[gl_reg] | ((ch as i32) << 8) | ch2)
+                } else {
+                    Some(ctx.gn[gl_reg] | (ch as i32))
+                }
+            } else {
+                Some(ctx.gn[gl_reg] | (ch as i32))
+            }
+        } else if (0xA0..=0xFF).contains(&ch) {
+            if ctx.gndbl[ctx.gr] {
+                if ctx.pos < bytes.len() {
+                    let ch2 = bytes[ctx.pos] as i32;
+                    ctx.pos += 1;
+                    Some(ctx.gn[ctx.gr] | ((ch as i32) << 8) | ch2)
+                } else {
+                    Some(ctx.gn[ctx.gr] | (ch as i32 & !0x80))
+                }
+            } else {
+                Some(ctx.gn[ctx.gr] | (ch as i32 & !0x80))
+            }
+        } else {
+            Some(ch as i32)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -550,5 +825,137 @@ mod tests {
     #[test]
     fn latin1_empty() {
         assert_eq!(collect(&[], InputEncoding::Latin1), vec![]);
+    }
+
+    /* StreamingDecoder tests - cross-line state preservation */
+
+    #[test]
+    fn streaming_hz_two_byte_persists_across_lines() {
+        // ~{ on line 1 should keep two-byte mode for line 2
+        let mut dec = StreamingDecoder::new(InputEncoding::HZ, None);
+        let line1 = dec.decode_bytes(&[b'~', b'{', 0xA1, 0xA2]);
+        let line2 = dec.decode_bytes(&[0xB1, 0xB2]);
+        assert_eq!(line1, vec![0xA1A2]);
+        assert_eq!(line2, vec![0xB1B2]);
+    }
+
+    #[test]
+    fn streaming_hz_mode_switch_only_line_persists() {
+        // Line 1 contains only ~{ (mode switch, no character output),
+        // line 2 should still be decoded in two-byte mode
+        let mut dec = StreamingDecoder::new(InputEncoding::HZ, None);
+        let line1 = dec.decode_bytes(&[b'~', b'{']);
+        let line2 = dec.decode_bytes(&[0xA1, 0xA2]);
+        assert_eq!(line1, vec![]);
+        assert_eq!(line2, vec![0xA1A2]);
+    }
+
+    #[test]
+    fn streaming_hz_exit_mode_persists_across_lines() {
+        // ~} on line 2 should exit two-byte mode started on line 1
+        let mut dec = StreamingDecoder::new(InputEncoding::HZ, None);
+        let line1 = dec.decode_bytes(&[b'~', b'{', 0xA1, 0xA2]);
+        let line2 = dec.decode_bytes(&[b'~', b'}', b'A', b'B']);
+        assert_eq!(line1, vec![0xA1A2]);
+        assert_eq!(line2, vec![65, 66]);
+    }
+
+    #[test]
+    fn streaming_utf8_no_state_preservation_needed() {
+        // UTF-8 has no state, streaming should work identically to per-call
+        let mut dec = StreamingDecoder::new(InputEncoding::UTF8, None);
+        assert_eq!(dec.decode_bytes(b"Hello"), vec![72, 101, 108, 108, 111]);
+        assert_eq!(dec.decode_bytes(b"World"), vec![87, 111, 114, 108, 100]);
+    }
+
+    #[test]
+    fn streaming_latin1_no_state_preservation_needed() {
+        let mut dec = StreamingDecoder::new(InputEncoding::Latin1, None);
+        assert_eq!(dec.decode_bytes(&[0xE9, 0xF1]), vec![0xE9, 0xF1]);
+        assert_eq!(dec.decode_bytes(&[0x41, 0x42]), vec![0x41, 0x42]);
+    }
+
+    #[test]
+    fn streaming_iso2022_gregister_persists_across_lines() {
+        // ESC(B designates G0 as US-ASCII on line 1,
+        // line 2 should still use the default G0
+        let mut dec = StreamingDecoder::new(InputEncoding::ISO2022, None);
+        let line1 = dec.decode_bytes(b"ABC");
+        let line2 = dec.decode_bytes(b"DEF");
+        assert_eq!(line1, vec![65, 66, 67]);
+        assert_eq!(line2, vec![68, 69, 70]);
+    }
+
+    #[test]
+    fn streaming_iso2022_esc_sequence_on_line() {
+        // ESC sequence in the middle of line
+        let mut dec = StreamingDecoder::new(InputEncoding::ISO2022, None);
+        // ESC n switches GL to G2
+        let line1 = dec.decode_bytes(&[0x1B, b'n', b'A', b'B']);
+        assert_eq!(line1, vec![65, 66]);
+    }
+
+    #[test]
+    fn streaming_iso2022_so_si_persists_across_lines() {
+        // SO switches GL to G1 on line 1, should persist to line 2
+        // Default G1 = 0x80, so 'A' -> 0x80 | 0x41 = 0xC1 = 193
+        let mut dec = StreamingDecoder::new(InputEncoding::ISO2022, None);
+        let line1 = dec.decode_bytes(&[0x0E, b'A']);
+        let line2 = dec.decode_bytes(&[b'B']);
+        assert_eq!(line1, vec![0x80 | 0x41]);
+        assert_eq!(line2, vec![0x80 | 0x42]); // GL=G1 persists from line 1
+    }
+
+    #[test]
+    fn streaming_iso2022_esc_n_ss2() {
+        // Designate G2 with ESC * D, then ESC N invokes it for one char
+        // gn[2] = 0x44 << 16 = 0x440000, so 'A' -> 0x440041, 'B' restores to G0 -> 0x42
+        let mut dec = StreamingDecoder::new(InputEncoding::ISO2022, None);
+        let result = dec.decode_bytes(&[0x1B, b'*', b'D', 0x1B, b'N', b'A', b'B']);
+        assert_eq!(result, vec![0x440041, 0x42]);
+    }
+
+    #[test]
+    fn streaming_iso2022_esc_o_ss3() {
+        // Designate G3 with ESC + E, then ESC O invokes it for one char
+        // gn[3] = 0x45 << 16 = 0x450000, so 'A' -> 0x450041, 'B' restores to G0 -> 0x42
+        let mut dec = StreamingDecoder::new(InputEncoding::ISO2022, None);
+        let result = dec.decode_bytes(&[0x1B, b'+', b'E', 0x1B, b'O', b'A', b'B']);
+        assert_eq!(result, vec![0x450041, 0x42]);
+    }
+
+    #[test]
+    fn streaming_iso2022_single_shift_crosses_line_boundary() {
+        // 0x8E (SS2) on line 1 with no following character,
+        // should apply to the first character on line 2
+        // Designate G2 with ESC * K (0x4B), then 0x8E on line 1,
+        // gn[2] = 0x4B0000, so 'A' -> 0x4B0041 on line 2
+        let mut dec = StreamingDecoder::new(InputEncoding::ISO2022, None);
+        let line1 = dec.decode_bytes(&[0x1B, b'*', b'K', 0x8E]);
+        let line2 = dec.decode_bytes(&[b'A', b'B']);
+        assert_eq!(line1, vec![]);
+        assert_eq!(line2, vec![0x4B0041, 0x42]);
+    }
+
+    #[test]
+    fn streaming_iso2022_ss2_crosses_line_boundary() {
+        // ESC N (SS2) on line 1 with no following character,
+        // should apply to the first character on line 2
+        // Designate G2 with ESC * L (0x4C), then ESC N on line 1,
+        // gn[2] = 0x4C0000, so 'A' -> 0x4C0041 on line 2
+        let mut dec = StreamingDecoder::new(InputEncoding::ISO2022, None);
+        let line1 = dec.decode_bytes(&[0x1B, b'*', b'L', 0x1B, b'N']);
+        let line2 = dec.decode_bytes(&[b'A', b'B']);
+        assert_eq!(line1, vec![]);
+        assert_eq!(line2, vec![0x4C0041, 0x42]);
+    }
+
+    #[test]
+    fn streaming_iso2022_94x94_double_byte() {
+        // ESC $( X designates G0 as 94x94 with designator X
+        // Then 'A' 'B' should produce double-byte code 0x584142
+        let mut dec = StreamingDecoder::new(InputEncoding::ISO2022, None);
+        let result = dec.decode_bytes(&[0x1B, b'$', b'(', b'X', b'A', b'B']);
+        assert_eq!(result, vec![0x584142]);
     }
 }
