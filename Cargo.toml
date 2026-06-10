@@ -6,7 +6,7 @@ edition = "2021"
 description = "Render text as ASCII-art banners"
 repository = "https://github.com/cmatsuoka/figdriver-rs"
 license = "MIT"
-keywords = ["ascii", "ascii-art", "terminal"]
+keywords = ["ascii", "ascii-art", "terminal", "banner", "figlet"]
 readme = "README.md"
 include = [
         "/Cargo.toml",
