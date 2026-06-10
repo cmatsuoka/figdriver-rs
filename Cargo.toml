@@ -16,8 +16,15 @@ include = [
         "/src/**",
         "/tests/**",
         "/examples/**",
-        "/fonts/*.flf",
-        "/fonts/*.flc",
+        "fonts/small.flf",
+        "fonts/banner.flf",
+        "fonts/standard.flf",
+        "fonts/frango.flc",
+        "fonts/upper.flc",
+        "fonts/utf8.flc",
+        "fonts/hz.flc",
+        "fonts/646-de.flc",
+        "fonts/jis0201.flc",
 ]
 categories = ["text-processing", "command-line-utilities"]
 
