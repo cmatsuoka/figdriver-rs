@@ -1,3 +1,81 @@
+//! FIGdriver-rs is a Rust library for rendering text in large ASCII-art characters using
+//! FIGfont format fonts, compatible with the [FIGlet](https://www.figlet.org/) specification.
+//!
+//! The library offers two ways to render text:
+//!
+//! - **`Wrapper`** — High-level API with automatic word wrapping and alignment. Use
+//!   `write_line()` for single-line rendering or `write_paragraph()` for multi-line
+//!   paragraph mode. Accepts string input and flushes rendered lines via a callback.
+//! - **`Smusher`** — Lower-level API for direct character composition. Accepts strings
+//!   (`push_str`), single characters (`push`), or raw codes (`push_codes`). Create with
+//!   `Smusher::new()` for defaults or `Smusher::builder()` for full control over layout
+//!   mode, direction, and control pipelines.
+//!
+//! # Quick Start
+//!
+//! ```
+//! use figdriver::{FIGfont, Smusher};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let font = FIGfont::from_path("fonts/small.flf")?;
+//! let mut sm = Smusher::new(&font);
+//! sm.push_str("Hi!");
+//!
+//! for line in sm.get() {
+//!     println!("{}", line);
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Using the Wrapper
+//!
+//! The `Wrapper` handles word wrapping, alignment, and output formatting on top of a `Smusher`.
+//!
+//! ```
+//! use figdriver::{FIGfont, Smusher, Wrapper, Control, Align};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let font = FIGfont::from_path("fonts/small.flf")?;
+//! let sm = Smusher::new(&font);
+//! let mut wr = Wrapper::new(sm, Control::default(), 80, Align::Left);
+//!
+//! wr.write_line("Hello, world!", &|lines: &[String]| {
+//!     for line in lines {
+//!         println!("{}", line);
+//!     }
+//! });
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Using the Smusher Directly
+//!
+//! For fine-grained control, use `Smusher` with the builder to adjust layout mode or other
+//! settings.
+//!
+//! ```
+//! use figdriver::{FIGfont, Smusher, LayoutMode};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let font = FIGfont::from_path("fonts/small.flf")?;
+//! let mut sm = Smusher::builder(&font)
+//!     .layout_mode(LayoutMode::FullWidth)
+//!     .build();
+//! sm.push_str("Hi!");
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Key Types
+//!
+//! - [`FIGfont`] — Parsed FIGfont (.flf) file, the font data source.
+//! - [`FIGchar`] — A single multi-line character definition from a font.
+//! - [`Smusher`] — Composes characters into a multi-line output buffer with smushing.
+//! - [`Wrapper`] — Adds word wrapping, alignment, and paragraph mode on top of a Smusher.
+//! - [`Control`] — Character-mapping pipeline (fnc files) for ligatures and substitutions.
+//! - [`Error`] — Error type covering font loading, I/O, parsing, and rendering failures.
+
 use std::error;
 use std::fmt;
 use std::io;
