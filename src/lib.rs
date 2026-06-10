@@ -11,7 +11,7 @@ pub use self::figfont::{
 };
 pub use self::wrapper::{Align, Wrapper, is_whitespace_code};
 pub use self::smusher::{LayoutMode, Smusher, SmusherBuilder};
-pub use self::control::{Control, Flc, InputEncoding};
+pub use self::control::{Control, InputEncoding};
 
 mod control;
 mod figfont;
