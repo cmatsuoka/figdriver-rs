@@ -139,7 +139,7 @@ struct TransformationStage {
 /// A parsed FIGfont control file (.flc).
 /// Contains transformation stages, encoding settings, and ISO 2022 configuration.
 #[derive(Debug, Clone)]
-pub struct Flc {
+struct Flc {
     /// Sequential transformation stages applied in order.
     stages: Vec<TransformationStage>,
     /// The input encoding specified by the control file.
@@ -163,7 +163,7 @@ pub struct Control {
 impl Flc {
     /// Parse a control file from the given path.
     /// Automatically detects and decompresses ZIP-compressed files.
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+    fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let path = path.as_ref();
 
         if is_zip(path) {
@@ -246,7 +246,7 @@ impl Flc {
     }
 
     /// Apply all transformation stages to a character code.
-    pub fn apply(&self, code: i32) -> i32 {
+    fn apply(&self, code: i32) -> i32 {
         let mut result = code;
         for stage in &self.stages {
             if let Some(mapped) = stage.apply(result) {
@@ -257,7 +257,7 @@ impl Flc {
     }
 
     /// Get the configured input encoding.
-    pub fn encoding(&self) -> InputEncoding {
+    fn encoding(&self) -> InputEncoding {
         self.encoding
     }
 
@@ -306,7 +306,7 @@ impl Control {
     }
 
     /// Apply all transformations across all files in order.
-    pub fn apply(&self, code: i32) -> i32 {
+    pub(crate) fn apply(&self, code: i32) -> i32 {
         let mut result = code;
         for flc in &self.files {
             result = flc.apply(result);

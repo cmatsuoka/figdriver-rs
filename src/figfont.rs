@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read, Seek};
 use std::path::Path;
 use crate::Error;
-use crate::zip::{is_zip, decompress_zip};
+use crate::zip::{is_zip, decompress_zip, is_zip_reader, decompress_zip_reader};
 
 /// Horizontal smush rule 1: smushes identical sub-characters together.
 pub const SMUSH_EQUAL    : u32 = 1;
@@ -63,6 +63,26 @@ impl FIGfont {
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let mut font = Self::default();
         font.load(path)?;
+        Ok(font)
+    }
+
+    /// Create a new FIGfont from a reader.
+    ///
+    /// Automatically detects and decompresses ZIP-compressed fonts.
+    /// The reader must implement [`Seek`] because ZIP archive parsing
+    /// requires seeking. Suitable for reading from files, memory buffers
+    /// (e.g., `std::io::Cursor<Vec<u8>>`), or WASM `ArrayBuffer` data.
+    pub fn from_reader<R: Read + Seek>(mut reader: R) -> Result<Self, Error> {
+        let mut font = Self::default();
+
+        if is_zip_reader(&mut reader)? {
+            let mut cursor = decompress_zip_reader(reader)
+                .map_err(|_| Error::FontFormat("invalid ZIP archive"))?;
+            font.load_from_reader(&mut cursor)?;
+            return Ok(font);
+        }
+
+        font.load_from_reader(&mut BufReader::new(reader))?;
         Ok(font)
     }
 
