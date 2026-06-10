@@ -16,7 +16,7 @@
 //! ```
 //! use figdriver::{FIGfont, Smusher};
 //!
-//! # fn foo() -> Result<(), Box<dyn std::error::Error>> {
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let font = FIGfont::from_path("fonts/small.flf")?;
 //! let mut sm = Smusher::new(&font);
 //! sm.push_str("Hi!");
@@ -35,7 +35,7 @@
 //! ```
 //! use figdriver::{FIGfont, Smusher, Wrapper, Control, Align};
 //!
-//! # fn foo() -> Result<(), Box<dyn std::error::Error>> {
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let font = FIGfont::from_path("fonts/small.flf")?;
 //! let sm = Smusher::new(&font);
 //! let mut wr = Wrapper::new(sm, Control::default(), 80, Align::Left);
@@ -57,7 +57,7 @@
 //! ```
 //! use figdriver::{FIGfont, Smusher, LayoutMode};
 //!
-//! # fn foo() -> Result<(), Box<dyn std::error::Error>> {
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let font = FIGfont::from_path("fonts/small.flf")?;
 //! let mut sm = Smusher::builder(&font)
 //!     .layout_mode(LayoutMode::FullWidth)
