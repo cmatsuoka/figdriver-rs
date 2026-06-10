@@ -49,7 +49,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-figdriver = "0.2"
+figdriver = "0.3"
 ```
 
 The library has minimal dependencies (`unicode-width`, `zip`). The `figlet` binary requires the `cli` feature (`pico-args`, `terminal_size`).
