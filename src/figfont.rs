@@ -30,7 +30,7 @@ pub const SMUSH_ENABLE   : u32 = 128;
 /// fit together in a line. All FIGcharacters in a font must have the same number
 /// of lines, and all lines in a FIGcharacter must have the same number of
 /// characters.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct FIGfont {
     version       : char,     // font standard version (currently 'a')
     /// The sub-character used to represent hardblanks in FIGcharacter data.
@@ -211,7 +211,7 @@ fn i32_from_str(s: &str) -> Result<i32, Error> {
 /// Each line is a row of the character glyph. The width in characters is
 /// determined by the length of the first line; all subsequent lines must
 /// have the same character width.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FIGchar {
     lines: Vec<String>,
 }
