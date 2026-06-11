@@ -113,12 +113,13 @@ fn render_font(font_dir: &str, font_name: &str, word: &str) {
         }
     };
 
-    let sm = figdriver::Smusher::builder(&font)
+    let rtl = font.right_to_left;
+    let sm = figdriver::Smusher::builder(font)
         .layout_mode(figdriver::LayoutMode::Default)
-        .right_to_left(font.right_to_left)
+        .right_to_left(rtl)
         .build();
 
-    let mut wr = figdriver::Wrapper::new(sm, figdriver::Control::default(), 80 - 1, figdriver::Align::Left);
+    let mut wr = figdriver::Wrapper::new(sm, 80 - 1, figdriver::Align::Left);
     let print_fn = print_output;
 
     wr.write_line(word, &print_fn);

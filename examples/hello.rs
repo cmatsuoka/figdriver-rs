@@ -18,7 +18,7 @@ fn main() {
 fn run() -> Result<Vec<String>, figdriver::Error> {
     let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf";
     let font = FIGfont::from_path(&path)?;
-    let mut sm = Smusher::new(&font);
+    let mut sm = Smusher::new(font);
     sm.push_str("Hello world");
     Ok(sm.get())
 }

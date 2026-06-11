@@ -298,6 +298,11 @@ impl StreamingDecoder {
         }
     }
 
+    /// Create a default streaming decoder with UTF-8 encoding and no ISO 2022 settings.
+    pub(crate) fn default_decoder() -> Self {
+        Self::new(InputEncoding::UTF8, None)
+    }
+
     /// Decode a slice of bytes into character codes, preserving decoder state.
     pub(crate) fn decode_bytes(&mut self, bytes: &[u8]) -> Vec<i32> {
         match self.encoding {

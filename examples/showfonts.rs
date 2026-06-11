@@ -30,7 +30,7 @@ fn show_font(p: PathBuf, prefix: &str) -> Result<(), Box<dyn Error>> {
     let font = FIGfont::from_path(p.to_str().unwrap())?;
     let name = p.strip_prefix(prefix)?.file_stem().unwrap().to_str().unwrap();
     println!("{}:", name); 
-    let mut sm = Smusher::new(&font);
+    let mut sm = Smusher::new(font);
     sm.push_str(name);
     for x in sm.get() {
         println!("{}", x);
