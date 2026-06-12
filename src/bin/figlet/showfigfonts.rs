@@ -113,10 +113,8 @@ fn render_font(font_dir: &str, font_name: &str, word: &str) {
         }
     };
 
-    let rtl = font.right_to_left;
     let sm = figdriver::Smusher::builder(font)
         .layout_mode(figdriver::LayoutMode::Default)
-        .right_to_left(rtl)
         .build();
 
     let mut wr = figdriver::Wrapper::new(sm, 80 - 1, figdriver::Align::Left);
