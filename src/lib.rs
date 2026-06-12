@@ -5,7 +5,8 @@
 //!
 //! - **`Wrapper`** — High-level API with automatic word wrapping and alignment. Use
 //!   `write_line()` for single-line rendering or `write_paragraph()` for multi-line
-//!   paragraph mode. Accepts string input and flushes rendered lines via a callback.
+//!   paragraph mode. Create with `Wrapper::new()` for defaults or `Wrapper::builder()`
+//!   for full control over layout mode, direction, and control pipelines.
 //! - **`Smusher`** — Lower-level API for direct character composition. Accepts strings
 //!   (`push_str`), single characters (`push`), or raw codes (`push_codes`). Create with
 //!   `Smusher::new()` for defaults or `Smusher::builder()` for full control over layout
@@ -30,15 +31,14 @@
 //!
 //! # Using the Wrapper
 //!
-//! The `Wrapper` handles word wrapping, alignment, and output formatting on top of a `Smusher`.
+//! The `Wrapper` handles word wrapping, alignment, and output formatting.
 //!
 //! ```
-//! use figdriver::{FIGfont, Smusher, Wrapper, Align};
+//! use figdriver::{FIGfont, Wrapper};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let font = FIGfont::from_path("fonts/small.flf")?;
-//! let sm = Smusher::new(font);
-//! let mut wr = Wrapper::new(sm, 80, Align::Left);
+//! let mut wr = Wrapper::new(font, 80);
 //!
 //! wr.write_line("Hello, world!", &|lines: &[String]| {
 //!     for line in lines {
@@ -72,7 +72,8 @@
 //! - [`FIGfont`] — Parsed FIGfont (.flf) file, the font data source.
 //! - [`FIGchar`] — A single multi-line character definition from a font.
 //! - [`Smusher`] — Composes characters into a multi-line output buffer with smushing.
-//! - [`Wrapper`] — Adds word wrapping, alignment, and paragraph mode on top of a Smusher.
+//! - [`Wrapper`] — Adds word wrapping, alignment, and paragraph mode.
+//! - [`WrapperBuilder`] — Configures a Wrapper with layout mode, direction, and control.
 //! - [`Control`] — Character-mapping pipeline (fnc files) for ligatures and substitutions.
 //! - [`Error`] — Error type covering font loading, I/O, parsing, and rendering failures.
 
@@ -87,7 +88,7 @@ pub use self::figfont::{
     SMUSH_ENABLE, SMUSH_EQUAL, SMUSH_HARDBLANK, SMUSH_HIERARCHY,
     SMUSH_KERN, SMUSH_PAIR, SMUSH_UNDERLINE, SMUSH_BIGX,
 };
-pub use self::wrapper::{Align, Wrapper, is_whitespace_code};
+pub use self::wrapper::{Align, Wrapper, WrapperBuilder, is_whitespace_code};
 pub use self::smusher::{LayoutMode, Smusher, SmusherBuilder};
 pub use self::control::{Control, InputEncoding};
 

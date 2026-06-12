@@ -1,7 +1,10 @@
 use crate::Error;
+use crate::FIGfont;
 use crate::Smusher;
+use crate::control::Control;
 use crate::control::StreamingDecoder;
 use crate::smusher::display_width;
+use crate::smusher::LayoutMode;
 
 /// Horizontal alignment of rendered ASCII-art output within the wrapper width.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -12,6 +15,70 @@ pub enum Align {
     Right,
     /// Center text; padding is distributed evenly on both sides.
     Center,
+}
+
+/// Builder for configuring a `Wrapper`.
+///
+/// Mirrors `SmusherBuilder`'s smusher configuration methods and adds
+/// wrapper-specific settings. Use `Wrapper::builder()` to construct.
+///
+/// # Examples
+///
+/// ```
+/// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
+/// let font = figdriver::FIGfont::from_path("small.flf")?;
+/// let wr = figdriver::Wrapper::builder(font, 80)
+///     .layout_mode(figdriver::LayoutMode::Kern)
+///     .build();
+/// # Ok(())
+/// # }
+/// ```
+pub struct WrapperBuilder {
+    font: FIGfont,
+    wrap_width: usize,
+    align: Option<Align>,
+    control: Option<Control>,
+    layout_mode: LayoutMode,
+    right_to_left: Option<bool>,
+}
+
+impl WrapperBuilder {
+    /// Set the text alignment. Defaults to `Align::Left` for LTR fonts and
+    /// `Align::Right` for RTL fonts.
+    pub fn align(mut self, align: Align) -> Self {
+        self.align = Some(align);
+        self
+    }
+
+    /// Set the character-mapping control pipeline.
+    pub fn control(mut self, control: Control) -> Self {
+        self.control = Some(control);
+        self
+    }
+
+    /// Override the layout mode. Defaults to `LayoutMode::Default`.
+    pub fn layout_mode(mut self, mode: LayoutMode) -> Self {
+        self.layout_mode = mode;
+        self
+    }
+
+    /// Override the right-to-left setting. Defaults to the font's `right_to_left`.
+    pub fn right_to_left(mut self, val: bool) -> Self {
+        self.right_to_left = Some(val);
+        self
+    }
+
+    /// Build the Wrapper.
+    pub fn build(self) -> Wrapper {
+        let font_rtl = self.font.right_to_left;
+        let align = self.align.unwrap_or(if font_rtl { Align::Right } else { Align::Left });
+        let sm = Smusher::builder(self.font)
+            .control(self.control.unwrap_or_default())
+            .layout_mode(self.layout_mode)
+            .right_to_left(self.right_to_left.unwrap_or(font_rtl))
+            .build();
+        Wrapper::new_from_smusher(sm, self.wrap_width, align)
+    }
 }
 
 /// Render smushed ASCII-art characters with word wrapping.
@@ -32,22 +99,54 @@ pub struct Wrapper {
 }
 
 impl Wrapper {
-    /// Create a new wrapper using the specified Smusher, terminal width, and alignment.
+    /// Create a new wrapper using the specified FIGfont and terminal width.
+    ///
+    /// Alignment defaults to `Align::Left` for LTR fonts and `Align::Right` for
+    /// RTL fonts. For more control over smusher configuration or alignment, use
+    /// `Wrapper::builder()`.
     ///
     /// # Examples
     ///
     /// ```
     /// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
-    /// // Create a smusher using the specified FIGfont
+    /// // Load a FIGfont
     /// let font = figdriver::FIGfont::from_path("small.flf")?;
-    /// let sm = figdriver::Smusher::new(font);
     ///
-    /// // Create a line wrapper using our smusher and maximum width of 80 columns
-    /// let mut wr = figdriver::Wrapper::new(sm, 80, figdriver::Align::Left);
+    /// // Create a line wrapper with maximum width of 80 columns
+    /// let mut wr = figdriver::Wrapper::new(font, 80);
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(sm: Smusher, wrap_width: usize, align: Align) -> Self {
+    pub fn new(font: FIGfont, wrap_width: usize) -> Self {
+        Self::builder(font, wrap_width).build()
+    }
+
+    /// Create a builder for configuring the Wrapper.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
+    /// let font = figdriver::FIGfont::from_path("small.flf")?;
+    /// let wr = figdriver::Wrapper::builder(font, 80)
+    ///     .layout_mode(figdriver::LayoutMode::Kern)
+    ///     .build();
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn builder(font: FIGfont, wrap_width: usize) -> WrapperBuilder {
+        WrapperBuilder {
+            font,
+            wrap_width,
+            align: None,
+            control: None,
+            layout_mode: LayoutMode::Default,
+            right_to_left: None,
+        }
+    }
+
+    /// Internal constructor that takes a pre-built Smusher.
+    fn new_from_smusher(sm: Smusher, wrap_width: usize, align: Align) -> Self {
         let decoder = sm.control()
             .map(|ctrl| ctrl.create_streaming_decoder())
             .unwrap_or_default();
@@ -85,11 +184,11 @@ impl Wrapper {
     /// # Examples
     ///
     /// ```
-    /// # use figdriver::{FIGfont, Align, Wrapper, Smusher};
+    /// # use figdriver::{FIGfont, Wrapper};
     /// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
     /// // Create a new wrapper
-    /// let mut font = FIGfont::from_path("small.flf")?;
-    /// let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Left);
+    /// let font = FIGfont::from_path("small.flf")?;
+    /// let mut wr = Wrapper::new(font, 80);
     ///
     /// // Add a string to the output buffer
     /// wr.push_str("hello")?;
@@ -501,8 +600,7 @@ mod tests {
     fn test_newline_splits_lines() {
         use std::cell::RefCell;
         let font = test_font().unwrap();
-        let sm = Smusher::new(font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         wr.wrap_str("hello\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
@@ -539,8 +637,7 @@ mod tests {
     fn test_consecutive_newlines_produce_blank_lines() {
         use std::cell::RefCell;
         let font = test_font().unwrap();
-        let sm = Smusher::new(font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         wr.wrap_str("hello\n\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
@@ -578,8 +675,7 @@ mod tests {
     fn test_leading_whitespace_after_newline_preserved() {
         use std::cell::RefCell;
         let font = test_font().unwrap();
-        let sm = Smusher::new(font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         wr.wrap_str("hello\n  world", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
@@ -618,8 +714,7 @@ mod tests {
         let font = test_font().unwrap();
 
         // CRLF
-        let sm = Smusher::new(font.clone());
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(font.clone(), 80);
         let flushed = RefCell::new(Vec::new());
         wr.wrap_str("hello\r\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
         let flushed = flushed.borrow();
@@ -637,8 +732,7 @@ mod tests {
         );
 
         // Bare CR
-        let sm = Smusher::new(font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
         wr.wrap_str("hello\rworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
         let flushed = flushed.borrow();
@@ -660,8 +754,7 @@ mod tests {
     fn test_leading_newline_flushes_blank_line() {
         use std::cell::RefCell;
         let font = test_font().unwrap();
-        let sm = Smusher::new(font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         wr.wrap_str("\nworld", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
@@ -688,8 +781,7 @@ mod tests {
     fn test_trailing_newline_no_blank_line() {
         use std::cell::RefCell;
         let font = test_font().unwrap();
-        let sm = Smusher::new(font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         wr.wrap_str("hello\n", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
@@ -719,8 +811,7 @@ mod tests {
         // redundant re-flushing of the pre-space buffer.
         // Uses test font where each character renders to exactly 1 char width.
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/tests/fixtures/test.flf").unwrap();
-        let sm = Smusher::new(font);
-        let mut wr = Wrapper::new(sm, 5, Align::Left);
+        let mut wr = Wrapper::new(font, 5);
         let flushed = RefCell::new(Vec::new());
         let flush_count = RefCell::new(0usize);
 
@@ -742,8 +833,7 @@ mod tests {
     #[test]
     fn test_wrap_codes_basic() {
         let font = test_font().unwrap();
-        let sm = Smusher::new(font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         // "Hi" as codes: 72, 105
@@ -757,8 +847,7 @@ mod tests {
     #[test]
     fn test_wrap_codes_with_newline() {
         let font = test_font().unwrap();
-        let sm = Smusher::new(font);
-        let mut wr = Wrapper::new(sm, 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         // "Hi\n" as codes: 72, 105, 10
@@ -772,7 +861,7 @@ mod tests {
     #[test]
     fn test_push_codes() {
         let font = test_font().unwrap();
-        let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
 
         wr.push_codes(&[72, 105]).unwrap(); // "Hi"
         assert!(!wr.is_empty());
@@ -781,7 +870,7 @@ mod tests {
     #[test]
     fn test_write_line_basic() {
         let font = test_font().unwrap();
-        let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         wr.write_line(
@@ -798,7 +887,7 @@ mod tests {
     #[test]
     fn test_write_line_empty() {
         let font = test_font().unwrap();
-        let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         wr.write_line("", &|lines: &[String]| flushed.borrow_mut().push(lines.to_vec()));
@@ -809,7 +898,7 @@ mod tests {
     #[test]
     fn test_write_paragraph_joins_with_space() {
         let font = test_font().unwrap();
-        let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         let print_fn = |lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
@@ -825,7 +914,7 @@ mod tests {
     #[test]
     fn test_write_paragraph_blank_line_flushes() {
         let font = test_font().unwrap();
-        let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         let print_fn = |lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
@@ -839,7 +928,7 @@ mod tests {
     #[test]
     fn test_write_paragraph_leading_space_flushes() {
         let font = test_font().unwrap();
-        let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         let print_fn = |lines: &[String]| flushed.borrow_mut().push(lines.to_vec());
@@ -853,7 +942,7 @@ mod tests {
     #[test]
     fn test_flush_paragraph_empty() {
         let font = test_font().unwrap();
-        let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         wr.flush_paragraph(
@@ -865,7 +954,7 @@ mod tests {
     #[test]
     fn test_flush_paragraph_with_content() {
         let font = test_font().unwrap();
-        let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Left);
+        let mut wr = Wrapper::new(font, 80);
         let flushed = RefCell::new(Vec::new());
 
         let print_fn = |lines: &[String]| flushed.borrow_mut().push(lines.to_vec());

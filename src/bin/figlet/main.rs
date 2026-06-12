@@ -157,11 +157,11 @@ fn run_figlet() -> Result<(), Error> {
     let flag_idx = args.last_index_of(&["-S", "--smush", "-s", "--smush-default", "-o", "--overlap", "-k", "--kern", "-W", "--full-width"]);
     let layout_mode: Option<figdriver::LayoutMode> = if let Some(m) = layout_mode_value {
         let resolved_m = match m {
-            0 => figdriver::LayoutMode::Kern,
-           -1 => figdriver::LayoutMode::FullWidth,
-           -2 => figdriver::LayoutMode::SmushDefault,
+            0   => figdriver::LayoutMode::Kern,
+           -1   => figdriver::LayoutMode::FullWidth,
+           -2   => figdriver::LayoutMode::SmushDefault,
             1.. => figdriver::LayoutMode::Custom(m as u32),
-            _ => return Err(Error::Cli(format!("Invalid mode value: {}", m))),
+            _   => return Err(Error::Cli(format!("Invalid mode value: {}", m))),
         };
         if let (Some(mi), Some(fi)) = (m_idx, flag_idx) {
             if mi > fi {
@@ -371,15 +371,14 @@ fn run_figlet_render(path: &Path, msg: String, cfg: &RunConfig, control: &Contro
         },
     };
 
-    let sm = figdriver::Smusher::builder(font)
+    // Subtract 1 from width to match figlet's quirk: figlet treats `-w N` as
+    // "allow lines up to N-1 characters" rather than N characters.
+    let mut wr = figdriver::Wrapper::builder(font, cfg.width - 1)
+        .align(justify_align)
         .control(control.clone())
         .layout_mode(layout_mode)
         .right_to_left(resolved_rtl)
         .build();
-
-    // Subtract 1 from width to match figlet's quirk: figlet treats `-w N` as
-    // "allow lines up to N-1 characters" rather than N characters.
-    let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1, justify_align);
 
     let source: Box<dyn io::Read> = if !msg.is_empty() {
         Box::new(io::Cursor::new(msg))
