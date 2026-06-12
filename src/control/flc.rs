@@ -22,6 +22,7 @@ impl InputEncoding {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum InputEncoding {
     /// Default encoding (no special handling).
+    #[default]
     Default,
     /// Latin-1 encoding (ISO 8859-1).
     Latin1,
