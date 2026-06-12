@@ -40,8 +40,8 @@ Or build locally:
 cargo build --release --features cli
 ```
 
-The resulting binary is `target/release/figlet`. This is a multicall binary; it will also act as `figlist` or
-`showfigfonts` if invoked as such.
+The resulting binary is `target/release/figlet`. This is a multicall binary;
+it will also act as `figlist` or `showfigfonts` if invoked as such.
 
 ## Using the library
 
@@ -52,7 +52,8 @@ Add to your `Cargo.toml`:
 figdriver = "0.4"
 ```
 
-The library has minimal dependencies (`unicode-width`, `zip`). The `figlet` binary requires the `cli` feature (`pico-args`, `terminal_size`).
+The library has minimal dependencies (`unicode-width`, `zip`). The `figlet`
+binary requires the `cli` feature (`pico-args`, `terminal_size`).
 
 Load a font and render text with `Smusher`:
 
