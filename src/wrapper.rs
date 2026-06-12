@@ -32,7 +32,7 @@ pub struct Wrapper {
 }
 
 impl Wrapper {
-    /// Create a new wrapper using the specified Smusher, Control, terminal width, and alignment.
+    /// Create a new wrapper using the specified Smusher, terminal width, and alignment.
     ///
     /// # Examples
     ///
