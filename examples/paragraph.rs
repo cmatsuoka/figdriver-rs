@@ -1,5 +1,5 @@
 use std::io::{self, BufRead};
-use figdriver::{Align, Control, FIGfont, Smusher, Wrapper};
+use figdriver::{Align, FIGfont, Smusher, Wrapper};
 
 fn main() {
     match run() {
@@ -15,9 +15,8 @@ fn main() {
 fn run() -> Result<(), figdriver::Error> {
     let path = env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/small.flf";
     let font = FIGfont::from_path(&path)?;
-    let control = Control::default();
 
-    let mut wr = Wrapper::new(Smusher::new(&font), control, 78, Align::Left);
+    let mut wr = Wrapper::new(Smusher::new(font), 78, Align::Left);
 
     let print_fn = |lines: &[String]| {
         for line in lines {

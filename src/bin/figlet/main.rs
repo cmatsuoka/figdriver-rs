@@ -371,15 +371,15 @@ fn run_figlet_render(path: &Path, msg: String, cfg: &RunConfig, control: &Contro
         },
     };
 
-    let sm = figdriver::Smusher::builder(&font)
-        .control(Some(control))
+    let sm = figdriver::Smusher::builder(font)
+        .control(control.clone())
         .layout_mode(layout_mode)
         .right_to_left(resolved_rtl)
         .build();
 
     // Subtract 1 from width to match figlet's quirk: figlet treats `-w N` as
     // "allow lines up to N-1 characters" rather than N characters.
-    let mut wr = figdriver::Wrapper::new(sm, control.clone(), cfg.width - 1, justify_align);
+    let mut wr = figdriver::Wrapper::new(sm, cfg.width - 1, justify_align);
 
     let source: Box<dyn io::Read> = if !msg.is_empty() {
         Box::new(io::Cursor::new(msg))

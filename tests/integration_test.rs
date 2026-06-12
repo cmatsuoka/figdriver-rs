@@ -10,8 +10,7 @@ macro_rules! new_smusher {
     ( $font:ident, $wr:ident, $path:expr, $width:expr, $align:expr ) => {
         let $font = load_font($path);
         let mut $wr = figdriver::Wrapper::new(
-            figdriver::Smusher::new(&$font),
-            figdriver::Control::default(),
+            figdriver::Smusher::new($font),
             $width,
             $align,
         );
@@ -19,10 +18,9 @@ macro_rules! new_smusher {
     ( $font:ident, $wr:ident, $path:expr, $width:expr, $align:expr, mode $mode:expr ) => {
         let $font = load_font($path);
         let mut $wr = figdriver::Wrapper::new(
-            figdriver::Smusher::builder(&$font)
+            figdriver::Smusher::builder($font)
                 .layout_mode($mode)
                 .build(),
-            figdriver::Control::default(),
             $width,
             $align,
         );
@@ -30,10 +28,9 @@ macro_rules! new_smusher {
     ( $font:ident, $wr:ident, $path:expr, $width:expr, $align:expr, rtl ) => {
         let $font = load_font($path);
         let mut $wr = figdriver::Wrapper::new(
-            figdriver::Smusher::builder(&$font)
+            figdriver::Smusher::builder($font)
                 .right_to_left(true)
                 .build(),
-            figdriver::Control::default(),
             $width,
             $align,
         );
@@ -41,11 +38,10 @@ macro_rules! new_smusher {
     ( $font:ident, $wr:ident, $path:expr, $width:expr, $align:expr, mode $mode:expr, rtl ) => {
         let $font = load_font($path);
         let mut $wr = figdriver::Wrapper::new(
-            figdriver::Smusher::builder(&$font)
+            figdriver::Smusher::builder($font)
                 .layout_mode($mode)
                 .right_to_left(true)
                 .build(),
-            figdriver::Control::default(),
             $width,
             $align,
         );
@@ -351,10 +347,10 @@ fn flc_all_chars_skipped_produces_no_output() {
     let pipeline = figdriver::Control::from_paths(&[
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fonts/frango.flc"),
     ]).unwrap();
-    let sm = figdriver::Smusher::builder(&font)
-        .control(Some(&pipeline))
+    let sm = figdriver::Smusher::builder(font)
+        .control(pipeline)
         .build();
-    let mut wr = figdriver::Wrapper::new(sm, pipeline.clone(), 80, figdriver::Align::Left);
+    let mut wr = figdriver::Wrapper::new(sm, 80, figdriver::Align::Left);
     assert!(wr.push_str("Test").is_ok());
     assert!(wr.is_empty());
     let output = wr.get();

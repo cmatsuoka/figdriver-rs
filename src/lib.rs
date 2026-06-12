@@ -18,7 +18,7 @@
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let font = FIGfont::from_path("fonts/small.flf")?;
-//! let mut sm = Smusher::new(&font);
+//! let mut sm = Smusher::new(font);
 //! sm.push_str("Hi!");
 //!
 //! for line in sm.get() {
@@ -33,12 +33,12 @@
 //! The `Wrapper` handles word wrapping, alignment, and output formatting on top of a `Smusher`.
 //!
 //! ```
-//! use figdriver::{FIGfont, Smusher, Wrapper, Control, Align};
+//! use figdriver::{FIGfont, Smusher, Wrapper, Align};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let font = FIGfont::from_path("fonts/small.flf")?;
-//! let sm = Smusher::new(&font);
-//! let mut wr = Wrapper::new(sm, Control::default(), 80, Align::Left);
+//! let sm = Smusher::new(font);
+//! let mut wr = Wrapper::new(sm, 80, Align::Left);
 //!
 //! wr.write_line("Hello, world!", &|lines: &[String]| {
 //!     for line in lines {
@@ -59,7 +59,7 @@
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let font = FIGfont::from_path("fonts/small.flf")?;
-//! let mut sm = Smusher::builder(&font)
+//! let mut sm = Smusher::builder(font)
 //!     .layout_mode(LayoutMode::FullWidth)
 //!     .build();
 //! sm.push_str("Hi!");

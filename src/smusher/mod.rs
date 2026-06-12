@@ -78,23 +78,23 @@ impl LayoutMode {
 /// ```
 /// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
 /// let font = figdriver::FIGfont::from_path("small.flf")?;
-/// let sm = figdriver::Smusher::builder(&font)
+/// let sm = figdriver::Smusher::builder(font)
 ///     .layout_mode(figdriver::LayoutMode::Kern)
 ///     .build();
 /// # Ok(())
 /// # }
 /// ```
-pub struct SmusherBuilder<'a> {
-    font: &'a FIGfont,
-    control: Option<&'a Control>,
+pub struct SmusherBuilder {
+    font: FIGfont,
+    control: Option<Control>,
     layout_mode: LayoutMode,
     right_to_left: Option<bool>,
 }
 
-impl<'a> SmusherBuilder<'a> {
-    /// Set an optional character-mapping control pipeline.
-    pub fn control(mut self, control: Option<&'a Control>) -> Self {
-        self.control = control;
+impl SmusherBuilder {
+    /// Set the character-mapping control pipeline.
+    pub fn control(mut self, control: Control) -> Self {
+        self.control = Some(control);
         self
     }
 
@@ -111,13 +111,14 @@ impl<'a> SmusherBuilder<'a> {
     }
 
     /// Build the Smusher.
-    pub fn build(self) -> Smusher<'a> {
-        let (mode, full_width) = self.layout_mode.resolve(self.font);
+    pub fn build(self) -> Smusher {
+        let (mode, full_width) = self.layout_mode.resolve(&self.font);
+        let right2left = self.right_to_left.unwrap_or(self.font.right_to_left);
         let mut sm = Smusher {
             font: self.font,
             mode,
             full_width,
-            right2left: self.right_to_left.unwrap_or(self.font.right_to_left),
+            right2left,
             output: Vec::new(),
             control: self.control,
         };
@@ -136,16 +137,16 @@ impl<'a> SmusherBuilder<'a> {
 /// FIGcharacters are moved closer to each other but without overlapping borders),
 /// or smushing (where borders overlap).
 #[derive(Debug)]
-pub struct Smusher<'a> {
+pub struct Smusher {
     mode      : u32,
     full_width: bool,
     right2left: bool,
-    font          : &'a FIGfont,
+    font          : FIGfont,
     output        : Vec<String>,
-    control       : Option<&'a Control>,
+    control       : Option<Control>,
 }
 
-impl<'a> Smusher<'a> {
+impl Smusher {
     /// Replace hardblanks in the given lines with spaces.
     pub(crate) fn replace_hardblanks(&self, lines: &mut [String]) {
         let hb = self.font.hardblank;
@@ -163,14 +164,14 @@ impl<'a> Smusher<'a> {
     /// ```
     /// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
     /// // Load a FIGfont
-    /// let mut font = figdriver::FIGfont::from_path("small.flf")?;
+    /// let font = figdriver::FIGfont::from_path("small.flf")?;
     ///
     /// // Create a smusher using the FIGfont
-    /// let mut sm = figdriver::Smusher::new(&font);
+    /// let mut sm = figdriver::Smusher::new(font);
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(font: &'a FIGfont) -> Self {
+    pub fn new(font: FIGfont) -> Self {
         Self::builder(font).build()
     }
 
@@ -181,13 +182,13 @@ impl<'a> Smusher<'a> {
     /// ```
     /// # fn foo() -> Result<(), Box<dyn std::error::Error>> {
     /// let font = figdriver::FIGfont::from_path("small.flf")?;
-    /// let sm = figdriver::Smusher::builder(&font)
+    /// let sm = figdriver::Smusher::builder(font)
     ///     .layout_mode(figdriver::LayoutMode::Kern)
     ///     .build();
     /// # Ok(())
     /// # }
     /// ```
-    pub fn builder(font: &'a FIGfont) -> SmusherBuilder<'a> {
+    pub fn builder(font: FIGfont) -> SmusherBuilder {
         SmusherBuilder {
             font,
             control: None,
@@ -245,7 +246,7 @@ impl<'a> Smusher<'a> {
     }
 
     /// Add character codes to the output buffer, applying the smushing rules specified in the
-    /// font layout. Each code is transformed by the control pipeline (if set) before font lookup.
+    /// font layout.
     ///
     /// Returns the subset of codes that were actually rendered.
     pub fn push_codes(&mut self, codes: &[i32]) -> Vec<i32> {
@@ -259,13 +260,12 @@ impl<'a> Smusher<'a> {
     }
 
     /// Add a single character code to the output buffer, applying the smushing rules specified
-    /// in the font layout. The code is transformed by the control pipeline (if set) before font
-    /// lookup.
+    /// in the font layout.
     ///
     /// Returns `true` if the character was rendered, `false` if it was missing from the font
     /// and skipped.
     pub(crate) fn push_code(&mut self, code: i32) -> bool {
-        let code = if let Some(ctrl) = self.control {
+        let code = if let Some(ctrl) = &self.control {
             ctrl.apply(code)
         } else {
             code
@@ -276,6 +276,11 @@ impl<'a> Smusher<'a> {
         } else {
             false
         }
+    }
+
+    /// Return a reference to the character-mapping control pipeline, if set.
+    pub(crate) fn control(&self) -> Option<&Control> {
+        self.control.as_ref()
     }
 
     /// Obtain the width, in screen columns, of the output buffer.
@@ -289,6 +294,7 @@ impl<'a> Smusher<'a> {
     pub fn trim(&mut self, width: usize) {
         self.output = trim(&self.output, width);
     }
+
 }
 
 fn amount(output: &[String], c: &FIGchar, hardblank: char, mode: u32, right2left: bool) -> usize {
@@ -397,10 +403,11 @@ mod tests {
     #[test]
     fn test_smusher_get_hardblank_replacement() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
-        let sm = Smusher::new(&font);
+        let hardblank = font.hardblank;
+        let sm = Smusher::new(font);
         let output = sm.get();
         for line in &output {
-            assert!(!line.contains(font.hardblank));
+            assert!(!line.contains(hardblank));
         }
     }
 
@@ -408,7 +415,7 @@ mod tests {
     #[test]
     fn test_smusher_is_empty() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
-        let mut sm = Smusher::new(&font);
+        let mut sm = Smusher::new(font);
         assert!(sm.is_empty());
         sm.push('A');
         assert!(!sm.is_empty());
@@ -418,7 +425,7 @@ mod tests {
     #[test]
     fn test_smusher_clear() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
-        let mut sm = Smusher::new(&font);
+        let mut sm = Smusher::new(font);
         sm.push('A');
         assert!(!sm.is_empty());
         sm.clear();
@@ -431,7 +438,7 @@ mod tests {
     #[test]
     fn test_smusher_width() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
-        let mut sm = Smusher::new(&font);
+        let mut sm = Smusher::new(font);
         assert_eq!(sm.width(), 0);
         sm.push('A');
         assert!(sm.width() > 0);
@@ -443,7 +450,7 @@ mod tests {
     #[test]
     fn test_smusher_push_str() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
-        let mut sm = Smusher::new(&font);
+        let mut sm = Smusher::new(font);
         sm.push_str("AB");
         let output = sm.get();
         assert!(!output[0].is_empty());
@@ -453,7 +460,7 @@ mod tests {
     #[test]
     fn test_smusher_push_codes() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
-        let mut sm = Smusher::new(&font);
+        let mut sm = Smusher::new(font);
         let rendered = sm.push_codes(&[65, 66, 67]);
         assert_eq!(rendered, vec![65, 66, 67]);
         assert!(!sm.is_empty());
@@ -463,7 +470,7 @@ mod tests {
     #[test]
     fn test_smusher_push_codes_skips_missing() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
-        let mut sm = Smusher::new(&font);
+        let mut sm = Smusher::new(font);
         let rendered = sm.push_codes(&[65, 0x1F600, 66]);
         assert_eq!(rendered, vec![65, 66]);
     }
@@ -472,7 +479,7 @@ mod tests {
     #[test]
     fn test_smusher_push_codes_empty() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
-        let mut sm = Smusher::new(&font);
+        let mut sm = Smusher::new(font);
         let rendered = sm.push_codes(&[]);
         assert!(rendered.is_empty());
         assert!(sm.is_empty());
@@ -482,7 +489,7 @@ mod tests {
     #[test]
     fn test_smusher_trim() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
-        let mut sm = Smusher::new(&font);
+        let mut sm = Smusher::new(font);
         sm.push_str("ABC");
         let width_before = sm.width();
         sm.trim(2);
@@ -494,7 +501,7 @@ mod tests {
     #[test]
     fn test_smusher_full_width() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
-        let mut sm = Smusher::builder(&font)
+        let mut sm = Smusher::builder(font)
             .layout_mode(LayoutMode::FullWidth)
             .build();
         sm.push('A');
@@ -509,11 +516,11 @@ mod tests {
         let mut font = FIGfont::default();
         font.height = 3;
         font.right_to_left = false;
-        let sm = Smusher::builder(&font).build();
+        let sm = Smusher::builder(font.clone()).build();
         assert!(!sm.right2left);
 
         font.right_to_left = true;
-        let sm = Smusher::builder(&font).build();
+        let sm = Smusher::builder(font).build();
         assert!(sm.right2left);
     }
 
@@ -523,13 +530,15 @@ mod tests {
         let mut font = FIGfont::default();
         font.height = 3;
         font.right_to_left = false;
-        let sm = Smusher::builder(&font)
+        let sm = Smusher::builder(font)
             .right_to_left(true)
             .build();
         assert!(sm.right2left);
 
+        let mut font = FIGfont::default();
+        font.height = 3;
         font.right_to_left = true;
-        let sm = Smusher::builder(&font)
+        let sm = Smusher::builder(font)
             .right_to_left(false)
             .build();
         assert!(!sm.right2left);
@@ -541,11 +550,11 @@ mod tests {
     fn test_smusher_skips_missing_char() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
 
-        let mut sm_with_unknown = Smusher::new(&font);
+        let mut sm_with_unknown = Smusher::new(font.clone());
         sm_with_unknown.push_str("A\u{1F600}B");
         let output_with_unknown = sm_with_unknown.get();
 
-        let mut sm_without_unknown = Smusher::new(&font);
+        let mut sm_without_unknown = Smusher::new(font);
         sm_without_unknown.push_str("AB");
         let output_without_unknown = sm_without_unknown.get();
 
