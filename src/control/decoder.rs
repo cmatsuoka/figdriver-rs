@@ -279,7 +279,7 @@ impl Iso2022State {
 /// Unlike `EncodingDecoder` which creates a fresh decoder per call, this type
 /// maintains decoder state (HZ two-byte flag, ISO 2022 G-register assignments)
 /// so that stateful encodings work correctly across line boundaries.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct StreamingDecoder {
     encoding: InputEncoding,
     /// For HZ encoding: are we currently in two-byte mode?
@@ -296,11 +296,6 @@ impl StreamingDecoder {
             hz_two_byte: false,
             iso2022_state: iso2022.map(Iso2022State::from_settings).unwrap_or_default(),
         }
-    }
-
-    /// Create a default streaming decoder with UTF-8 encoding and no ISO 2022 settings.
-    pub(crate) fn default_decoder() -> Self {
-        Self::new(InputEncoding::UTF8, None)
     }
 
     /// Decode a slice of bytes into character codes, preserving decoder state.

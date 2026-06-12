@@ -19,7 +19,7 @@ impl InputEncoding {
 
 /// Input encoding mode for multi-byte character processing.
 /// Determines how the FIGdriver interprets multi-byte character input.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum InputEncoding {
     /// Default encoding (no special handling).
     Default,

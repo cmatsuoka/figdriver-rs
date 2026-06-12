@@ -51,7 +51,7 @@ impl Wrapper {
         let decoder = if let Some(ctrl) = sm.control() {
             ctrl.create_streaming_decoder()
         } else {
-            StreamingDecoder::default_decoder()
+            StreamingDecoder::default()
         };
         Wrapper{
             sm,
