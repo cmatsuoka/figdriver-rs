@@ -1,6 +1,6 @@
 [package]
 name = "figdriver"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Claudio Matsuoka"]
 edition = "2021"
 description = "Render text as ASCII-art banners"

@@ -49,7 +49,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-figdriver = "0.3"
+figdriver = "0.4"
 ```
 
 The library has minimal dependencies (`unicode-width`, `zip`). The `figlet` binary requires the `cli` feature (`pico-args`, `terminal_size`).
@@ -61,7 +61,7 @@ use figdriver::{FIGfont, Smusher, LayoutMode};
 
 fn run() -> Result<Vec<String>, figdriver::Error> {
     let font = FIGfont::from_path("fonts/standard.flf")?;
-    let mut sm = Smusher::builder(&font)
+    let mut sm = Smusher::builder(font)
         .layout_mode(LayoutMode::Kern)
         .build();
     sm.push_str("Hello world");
@@ -72,27 +72,24 @@ fn run() -> Result<Vec<String>, figdriver::Error> {
 For word-wrapping and text alignment, use `Wrapper`:
 
 ```rust
-use figdriver::{FIGfont, Smusher, Wrapper, Align, Control};
+use figdriver::{FIGfont, Smusher, Wrapper, Align};
 
 let font = FIGfont::from_path("fonts/small.flf")?;
-let mut wr = Wrapper::new(Smusher::new(&font), Control::default(), 80, Align::Center);
-let print_fn = |lines: &[String]| {
-    for line in lines {
-        println!("{}", line);
-    }
-};
-wr.wrap_str("Hello world", &print_fn);
+let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Center);
+wr.push_str("Hello world")?;
+for line in &wr.get() {
+    println!("{}", line);
+}
 ```
 
 For line mode and paragraph mode rendering, `Wrapper` provides dedicated methods
 that accept bytes directly (decoded internally by the control):
 
 ```rust
-use figdriver::{FIGfont, Smusher, Wrapper, Align, Control};
+use figdriver::{FIGfont, Smusher, Wrapper, Align};
 
 let font = FIGfont::from_path("fonts/standard.flf")?;
-let control = Control::default();
-let mut wr = Wrapper::new(Smusher::builder(&font).build(), control, 80, Align::Left);
+let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Left);
 let print_fn = |lines: &[String]| {
     for line in lines {
         println!("{}", line);
@@ -116,8 +113,8 @@ use figdriver::{FIGfont, Smusher, Control};
 
 let font = FIGfont::from_path("fonts/standard.flf")?;
 let ctrl = Control::from_paths(&["controls/slip.flc"])?;
-let mut sm = Smusher::builder(&font)
-    .control(Some(&ctrl))
+let mut sm = Smusher::builder(font)
+    .control(ctrl)
     .build();
 ```
 
