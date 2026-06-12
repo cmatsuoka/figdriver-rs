@@ -48,11 +48,9 @@ impl Wrapper {
     /// # }
     /// ```
     pub fn new(sm: Smusher, wrap_width: usize, align: Align) -> Self {
-        let decoder = if let Some(ctrl) = sm.control() {
-            ctrl.create_streaming_decoder()
-        } else {
-            StreamingDecoder::default()
-        };
+        let decoder = sm.control()
+            .map(|ctrl| ctrl.create_streaming_decoder())
+            .unwrap_or_default();
         Wrapper{
             sm,
             wrap_width,
