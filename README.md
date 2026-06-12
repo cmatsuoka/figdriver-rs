@@ -83,7 +83,7 @@ for line in &wr.get() {
 ```
 
 For line mode and paragraph mode rendering, `Wrapper` provides dedicated methods
-that accept bytes directly (decoded internally by the control):
+that accept string slices (decoded internally by the control):
 
 ```rust
 use figdriver::{FIGfont, Smusher, Wrapper, Align};
