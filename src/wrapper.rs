@@ -15,6 +15,8 @@ pub enum Align {
     Right,
     /// Center text; padding is distributed evenly on both sides.
     Center,
+    /// Align according to text direction: left for LTR, right for RTL.
+    Auto,
 }
 
 /// Builder for configuring a `Wrapper`.
@@ -43,8 +45,8 @@ pub struct WrapperBuilder {
 }
 
 impl WrapperBuilder {
-    /// Set the text alignment. Defaults to `Align::Left` for LTR fonts and
-    /// `Align::Right` for RTL fonts.
+    /// Set the text alignment. Defaults to `Align::Auto`, which resolves to
+    /// `Align::Left` for LTR fonts and `Align::Right` for RTL fonts.
     pub fn align(mut self, align: Align) -> Self {
         self.align = Some(align);
         self
@@ -71,10 +73,14 @@ impl WrapperBuilder {
     /// Build the Wrapper.
     pub fn build(self) -> Wrapper {
         let font_rtl = self.font.right_to_left;
-        let align = self.align.unwrap_or(if font_rtl { Align::Right } else { Align::Left });
+        let effective_rtl = self.right_to_left.unwrap_or(font_rtl);
+        let align = match self.align {
+            Some(Align::Auto) | None => if effective_rtl { Align::Right } else { Align::Left },
+            Some(a) => a,
+        };
         let mut sm_builder = Smusher::builder(self.font)
             .layout_mode(self.layout_mode)
-            .right_to_left(self.right_to_left.unwrap_or(font_rtl));
+            .right_to_left(effective_rtl);
         if let Some(control) = self.control {
             sm_builder = sm_builder.control(control);
         }
@@ -231,6 +237,7 @@ impl Wrapper {
             Align::Left   => v.to_vec(),
             Align::Center => add_pad(&v, w / 2 + w % 2),
             Align::Right  => add_pad(&v, w),
+            Align::Auto   => unreachable!(),
         }
     }
 

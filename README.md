@@ -11,6 +11,7 @@
 
 [![CI](https://github.com/cmatsuoka/figdriver-rs/actions/workflows/ci.yaml/badge.svg)](https://github.com/cmatsuoka/figdriver-rs/actions/workflows/ci.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Crates.io Total Downloads](https://img.shields.io/crates/d/figdriver?label=crates.io)](https://crates.io/crates/figdriver)
 
 FIGdrivers render text as large ASCII-art banners using FIGfont (`.flf`) files. This
 project implements the FIGfont specification, available as a library or as a drop-in

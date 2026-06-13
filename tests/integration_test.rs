@@ -95,6 +95,48 @@ fn wrap_align_right() {
 }
 
 #[test]
+fn wrap_align_auto_ltr() {
+    let fnt = load_font("tests/fixtures/test.flf");
+    let mut wr = figdriver::Wrapper::builder(fnt, 12)
+        .align(figdriver::Align::Auto)
+        .build();
+    let captured = std::cell::RefCell::new(Vec::new());
+    let cb = |lines: &[String]| captured.borrow_mut().push(lines.to_vec());
+    wr.write_line("this is a new test", &cb);
+    let lines = captured.borrow();
+    assert_eq!(lines.len(), 2);
+    // Auto resolves to Left for LTR font
+    assert_eq!(lines[1][0], "new test");
+}
+
+#[test]
+fn wrap_align_auto_rtl() {
+    let fnt = load_font("tests/fixtures/test.flf");
+    let mut wr = figdriver::Wrapper::builder(fnt, 12)
+        .align(figdriver::Align::Auto)
+        .right_to_left(true)
+        .build();
+    let captured = std::cell::RefCell::new(Vec::new());
+    let cb = |lines: &[String]| captured.borrow_mut().push(lines.to_vec());
+    wr.write_line("this is a new test", &cb);
+    let lines_auto = captured.borrow();
+    assert_eq!(lines_auto.len(), 2);
+
+    // Verify Auto resolves to Right by comparing with explicit Right + RTL
+    let fnt2 = load_font("tests/fixtures/test.flf");
+    let mut wr2 = figdriver::Wrapper::builder(fnt2, 12)
+        .align(figdriver::Align::Right)
+        .right_to_left(true)
+        .build();
+    let captured2 = std::cell::RefCell::new(Vec::new());
+    let cb2 = |lines: &[String]| captured2.borrow_mut().push(lines.to_vec());
+    wr2.write_line("this is a new test", &cb2);
+    let lines_right = captured2.borrow();
+
+    assert_eq!(lines_auto[1][0], lines_right[1][0]);
+}
+
+#[test]
 fn standard_font_char() {
     new_wrapper!(fnt, wr, "fonts/standard.flf", 60, figdriver::Align::Left);
     assert!(!wr.push('A').is_err());

@@ -364,11 +364,7 @@ fn run_figlet_render(path: &Path, msg: String, cfg: &RunConfig, control: &Contro
         Justify::Left    => figdriver::Align::Left,
         Justify::Right   => figdriver::Align::Right,
         Justify::Center  => figdriver::Align::Center,
-        Justify::Default => if resolved_rtl {
-            figdriver::Align::Right
-        } else {
-            figdriver::Align::Left
-        },
+        Justify::Default => figdriver::Align::Auto,
     };
 
     // Subtract 1 from width to match figlet's quirk: figlet treats `-w N` as
