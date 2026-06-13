@@ -223,16 +223,11 @@ impl Smusher {
     /// Add a string to the output buffer, applying the smushing rules specified in the font
     /// layout.
     ///
-    /// Returns the subset of characters that were actually rendered (characters missing
-    /// from the font are omitted).
-    pub fn push_str(&mut self, s: &str) -> String {
-        let mut rendered = String::new();
+    /// Characters missing from the font are silently skipped.
+    pub fn push_str(&mut self, s: &str) {
         for x in s.chars() {
-            if self.push(x) {
-                rendered.push(x);
-            }
+            self.push(x);
         }
-        rendered
     }
 
     /// Add a character to the output buffer, applying the smushing rules specified in the font
@@ -248,15 +243,11 @@ impl Smusher {
     /// Add character codes to the output buffer, applying the smushing rules specified in the
     /// font layout.
     ///
-    /// Returns the subset of codes that were actually rendered.
-    pub fn push_codes(&mut self, codes: &[i32]) -> Vec<i32> {
-        let mut rendered = Vec::with_capacity(codes.len());
+    /// Codes for characters missing from the font are silently skipped.
+    pub fn push_codes(&mut self, codes: &[i32]) {
         for &code in codes {
-            if self.push_code(code) {
-                rendered.push(code);
-            }
+            self.push_code(code);
         }
-        rendered
     }
 
     /// Add a single character code to the output buffer, applying the smushing rules specified
@@ -461,8 +452,7 @@ mod tests {
     fn test_smusher_push_codes() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
         let mut sm = Smusher::new(font);
-        let rendered = sm.push_codes(&[65, 66, 67]);
-        assert_eq!(rendered, vec![65, 66, 67]);
+        sm.push_codes(&[65, 66, 67]);
         assert!(!sm.is_empty());
     }
 
@@ -470,9 +460,11 @@ mod tests {
     #[test]
     fn test_smusher_push_codes_skips_missing() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
-        let mut sm = Smusher::new(font);
-        let rendered = sm.push_codes(&[65, 0x1F600, 66]);
-        assert_eq!(rendered, vec![65, 66]);
+        let mut sm = Smusher::new(font.clone());
+        sm.push_codes(&[65, 0x1F600, 66]);
+        let mut sm2 = Smusher::new(font);
+        sm2.push_codes(&[65, 66]);
+        assert_eq!(sm.get(), sm2.get());
     }
 
     // push_codes() with empty slice is a no-op
@@ -480,8 +472,7 @@ mod tests {
     fn test_smusher_push_codes_empty() {
         let font = FIGfont::from_path(env!("CARGO_MANIFEST_DIR").to_owned() + "/fonts/standard.flf").unwrap();
         let mut sm = Smusher::new(font);
-        let rendered = sm.push_codes(&[]);
-        assert!(rendered.is_empty());
+        sm.push_codes(&[]);
         assert!(sm.is_empty());
     }
 

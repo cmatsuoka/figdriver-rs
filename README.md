@@ -58,10 +58,19 @@ binary requires the `cli` feature (`pico-args`, `terminal_size`).
 Load a font and render text with `Smusher`:
 
 ```rust
+<<<<<<< refactor/use-wrapper-builder
+use figdriver::{FIGfont, Smusher, LayoutMode};
+
+let font = FIGfont::from_path("fonts/standard.flf")?;
+let mut sm = Smusher::builder(font)
+    .layout_mode(LayoutMode::Kern)
+    .build();
+=======
 use figdriver::{FIGfont, Smusher};
 
 let font = FIGfont::from_path("fonts/standard.flf")?;
 let mut sm = Smusher::new(font);
+>>>>>>> main
 sm.push_str("Hello world");
 for line in &sm.get() {
     println!("{}", line);
@@ -108,11 +117,12 @@ wr.flush_paragraph(&print_fn);
 For character-mapping control files (`.flc`), use `Control`:
 
 ```rust
-use figdriver::{FIGfont, Smusher, Control};
+use figdriver::{FIGfont, Control, Wrapper, Align};
 
 let font = FIGfont::from_path("fonts/standard.flf")?;
 let ctrl = Control::from_paths(&["controls/slip.flc"])?;
-let mut sm = Smusher::builder(font)
+let mut wr = Wrapper::builder(font, 80)
+    .align(Align::Left)
     .control(ctrl)
     .build();
 ```

@@ -113,11 +113,11 @@ fn render_font(font_dir: &str, font_name: &str, word: &str) {
         }
     };
 
-    let sm = figdriver::Smusher::builder(font)
+    // Subtract 1 from width to match figlet's quirk
+    let mut wr = figdriver::Wrapper::builder(font, 80 - 1)
+        .align(figdriver::Align::Left)
         .layout_mode(figdriver::LayoutMode::Default)
         .build();
-
-    let mut wr = figdriver::Wrapper::new(sm, 80 - 1, figdriver::Align::Left);
     let print_fn = print_output;
 
     wr.write_line(word, &print_fn);
