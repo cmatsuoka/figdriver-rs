@@ -31,7 +31,7 @@ fn infocode_one_version_integer() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let version: u32 = stdout.parse().unwrap();
-    assert_eq!(version, 400);
+    assert_eq!(version, 500);
 }
 
 #[test]
