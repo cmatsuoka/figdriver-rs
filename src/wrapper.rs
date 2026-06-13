@@ -72,11 +72,13 @@ impl WrapperBuilder {
     pub fn build(self) -> Wrapper {
         let font_rtl = self.font.right_to_left;
         let align = self.align.unwrap_or(if font_rtl { Align::Right } else { Align::Left });
-        let sm = Smusher::builder(self.font)
-            .control(self.control.unwrap_or_default())
+        let mut sm_builder = Smusher::builder(self.font)
             .layout_mode(self.layout_mode)
-            .right_to_left(self.right_to_left.unwrap_or(font_rtl))
-            .build();
+            .right_to_left(self.right_to_left.unwrap_or(font_rtl));
+        if let Some(control) = self.control {
+            sm_builder = sm_builder.control(control);
+        }
+        let sm = sm_builder.build();
         Wrapper::new_from_smusher(sm, self.wrap_width, align)
     }
 }
