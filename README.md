@@ -58,25 +58,23 @@ binary requires the `cli` feature (`pico-args`, `terminal_size`).
 Load a font and render text with `Smusher`:
 
 ```rust
-use figdriver::{FIGfont, Smusher, LayoutMode};
+use figdriver::{FIGfont, Smusher};
 
-fn run() -> Result<Vec<String>, figdriver::Error> {
-    let font = FIGfont::from_path("fonts/standard.flf")?;
-    let mut sm = Smusher::builder(font)
-        .layout_mode(LayoutMode::Kern)
-        .build();
-    sm.push_str("Hello world");
-    Ok(sm.get())
+let font = FIGfont::from_path("fonts/standard.flf")?;
+let mut sm = Smusher::new(font);
+sm.push_str("Hello world");
+for line in &sm.get() {
+    println!("{}", line);
 }
 ```
 
 For word-wrapping and text alignment, use `Wrapper`:
 
 ```rust
-use figdriver::{FIGfont, Smusher, Wrapper, Align};
+use figdriver::{FIGfont, Wrapper};
 
 let font = FIGfont::from_path("fonts/small.flf")?;
-let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Center);
+let mut wr = Wrapper::new(font, 80);
 wr.push_str("Hello world")?;
 for line in &wr.get() {
     println!("{}", line);
@@ -87,10 +85,10 @@ For line mode and paragraph mode rendering, `Wrapper` provides dedicated methods
 that accept string slices (decoded internally by the control):
 
 ```rust
-use figdriver::{FIGfont, Smusher, Wrapper, Align};
+use figdriver::{FIGfont, Wrapper};
 
 let font = FIGfont::from_path("fonts/standard.flf")?;
-let mut wr = Wrapper::new(Smusher::new(font), 80, Align::Left);
+let mut wr = Wrapper::new(font, 80);
 let print_fn = |lines: &[String]| {
     for line in lines {
         println!("{}", line);
