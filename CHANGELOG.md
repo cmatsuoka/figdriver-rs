@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-14
+
+### Added
+
+- `Align::Auto` variant that resolves to `Left` for LTR fonts and `Right` for RTL fonts
+- `FIGfont.comment` field exposing font file header comment lines as a newline-joined `Arc<str>`
+
+### Changed
+
+- Font character hashmap is now shared via `Arc` to avoid copying on clone
+- Fonts with more than 128 comment lines are rejected as invalid
+- Simplified argument parsing and render loop in the `figlet` binary
+
 ## [0.5.1] - 2026-06-12
 
 ### Fixed

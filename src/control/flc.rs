@@ -98,8 +98,8 @@ impl ParsedIso2022Settings {
                 let mut d = gs.designating_byte;
                 if (gs.size == Iso2022CharSetSize::Bits94 && d == b'B' as i32)
                     || ((gs.size == Iso2022CharSetSize::Bits96
-                        || gs.size == Iso2022CharSetSize::Bits94x94)
-                        && d == b'A' as i32)
+                    || gs.size == Iso2022CharSetSize::Bits94x94)
+                    && d == b'A' as i32)
                 {
                     d = 0;
                 }
