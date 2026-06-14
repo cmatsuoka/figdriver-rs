@@ -135,6 +135,9 @@ fn run_figlet() -> Result<(), Error> {
             }
         })
         .unwrap_or(DEFAULT_WIDTH);
+    if width == 0 {
+        return Err(Error::Cli("Width must be greater than 0".to_string()));
+    }
 
     let layout_mode_value: Option<i32> = args.opt_value_from_str::<i32>(["-m", "--layout-mode"])
         .map_err(|e| Error::Cli(e.to_string()))?;
