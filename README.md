@@ -50,7 +50,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-figdriver = "0.5"
+figdriver = "0.6"
 ```
 
 The library has minimal dependencies (`unicode-width`, `zip`). The `figlet`

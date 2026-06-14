@@ -163,7 +163,7 @@ Per spec section 8.3:
 | Requirement | Status | Notes |
 |---|:---:|---|
 | Name includes "FIG" | ✔ | Project name is `FIGdriver-rs`, containing the required capitalized "FIG" |
-| Incremental version number | ✔ | Current version 0.5.0, tracked in Cargo.toml |
+| Incremental version number | ✔ | Current version 0.6.0, tracked in Cargo.toml |
 
 ### Notes on naming
 
