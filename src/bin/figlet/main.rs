@@ -125,22 +125,19 @@ fn run_figlet() -> Result<(), Error> {
 
     let control_files: Vec<String> = args.collect_values(["-C", "--control"]);
     let use_terminal_width = args.contains(["-t", "--terminal-width"]);
-    let width: usize = match args.opt_value_from_str::<usize>(["-w", "--width"])
+    let width: usize = args.opt_value_from_str::<usize>(["-w", "--width"])
         .map_err(|e| Error::Cli(e.to_string()))?
-    {
-        Some(w) => w,
-        None => {
+        .or_else(|| {
             if use_terminal_width {
-                if let Some((w, _)) = terminal_size::terminal_size() {
-                    w.0 as usize
-                } else {
-                    DEFAULT_WIDTH
-                }
+                terminal_size::terminal_size().map(|(w, _)| w.0 as usize)
             } else {
-                DEFAULT_WIDTH
+                None
             }
-        }
-    };
+        })
+        .unwrap_or(DEFAULT_WIDTH);
+    if width == 0 {
+        return Err(Error::Cli("Width must be greater than 0".to_string()));
+    }
 
     let layout_mode_value: Option<i32> = args.opt_value_from_str::<i32>(["-m", "--layout-mode"])
         .map_err(|e| Error::Cli(e.to_string()))?;
@@ -275,24 +272,27 @@ pub fn strip_font_suffix(name: &str) -> &str {
 }
 
 fn find_font(font_dir: PathBuf, name: String) -> PathBuf {
-    let candidates = if name.ends_with(".flf") || name.ends_with(".tlf") {
-        vec![name]
-    } else {
-        vec![format!("{}.flf", name), format!("{}.tlf", name)]
+    let path = |c: &str| -> PathBuf {
+        if c.starts_with(is_separator) {
+            PathBuf::from(c)
+        } else {
+            font_dir.join(c)
+        }
     };
 
-    for candidate in &candidates {
-        let path = if candidate.starts_with(is_separator) {
-            PathBuf::from(candidate)
-        } else {
-            font_dir.join(candidate)
-        };
-        if path.exists() {
-            return path;
-        }
+    if name.ends_with(".flf") || name.ends_with(".tlf") {
+        let p = path(&name);
+        return if p.exists() { p } else { PathBuf::from(&name) };
     }
 
-    PathBuf::from(candidates.into_iter().next().unwrap())
+    for ext in [".flf", ".tlf"] {
+        let c = format!("{}{}", name, ext);
+        let p = path(&c);
+        if p.exists() {
+            return p;
+        }
+    }
+    PathBuf::from(format!("{}.flf", name))
 }
 
 fn find_control(font_dir: &str, mut name: String) -> PathBuf {
@@ -384,29 +384,21 @@ fn run_figlet_render(path: &Path, msg: String, cfg: &RunConfig, control: &Contro
     let mut input = io::BufReader::new(source);
 
     let mut buf = Vec::new();
-    let print_fn = |lines: &[String]| {
-        for line in lines {
-            println!("{}", line);
-        }
-    };
+    let print_fn = |lines: &[String]| lines.iter().for_each(|l| println!("{l}"));
 
-    if cfg.paragraph {
-        loop {
-            buf.clear();
-            let n = input.read_until(b'\n', &mut buf)?;
-            if n == 0 { break; }
-            let line = String::from_utf8_lossy(&buf);
+    loop {
+        buf.clear();
+        let n = input.read_until(b'\n', &mut buf)?;
+        if n == 0 { break; }
+        let line = String::from_utf8_lossy(&buf);
+        if cfg.paragraph {
             wr.write_paragraph(&line, &print_fn);
-        }
-        wr.flush_paragraph(&print_fn);
-    } else {
-        loop {
-            buf.clear();
-            let n = input.read_until(b'\n', &mut buf)?;
-            if n == 0 { break; }
-            let line = String::from_utf8_lossy(&buf);
+        } else {
             wr.write_line(&line, &print_fn);
         }
+    }
+    if cfg.paragraph {
+        wr.flush_paragraph(&print_fn);
     }
 
     Ok(())
