@@ -133,7 +133,9 @@ impl FIGfont {
         let mut comment_parts = Vec::with_capacity(self.comment_lines);
         for _ in 0..self.comment_lines {
             line.clear();
-            f.read_line(&mut line)?;
+            if f.read_line(&mut line)? == 0 {
+                return Err(Error::FontFormat("unexpected EOF while reading comment lines"));
+            }
             comment_parts.push(line.trim_end_matches(['\n', '\r']).to_string());
         }
         self.comment = comment_parts.join("\n").into();
