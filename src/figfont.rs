@@ -51,10 +51,10 @@ pub struct FIGfont {
     /// Number of lines in each FIGcharacter.
     pub height    : usize,
 
-    /// number of lines from the baseline of a FIGcharacter.
+    /// Number of lines from the baseline of a FIGcharacter.
     baseline      : usize,
 
-    /// maximum length of any line describing a FIGcharacter.
+    /// Maximum length of any line describing a FIGcharacter.
     max_length    : usize,
 
     /// Legacy layout parameter for backward compatibility.
@@ -62,7 +62,7 @@ pub struct FIGfont {
     /// and positive values are bitmasks of horizontal smushing rules.
     pub old_layout: i32,
 
-    /// number of comment lines at the start of the file.
+    /// Number of comment lines at the start of the file.
     comment_lines : usize,
 
     /// Comment lines from the font file header.
