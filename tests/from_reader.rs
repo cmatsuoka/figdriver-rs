@@ -60,3 +60,30 @@ fn from_reader_invalid_data() {
     let result = figdriver::FIGfont::from_reader(Cursor::new(data));
     assert!(result.is_err());
 }
+
+#[test]
+fn font_comments_are_read() {
+    let font = figdriver::FIGfont::from_path(manifest().join("tests/fixtures/test.flf")).unwrap();
+    let lines: Vec<&str> = font.comment.split('\n').collect();
+    assert_eq!(lines.len(), 5);
+    assert_eq!(lines[0], "Test font by Claudio Matsuoka");
+    assert_eq!(lines[1], "Based on Terminal by Glenn Chappell 4/93, without code tags.");
+    assert_eq!(lines[4], "  ");
+}
+
+#[test]
+fn font_comments_shared_on_clone() {
+    let font = figdriver::FIGfont::from_path(manifest().join("tests/fixtures/test.flf")).unwrap();
+    let cloned = font.clone();
+    assert!(std::sync::Arc::ptr_eq(&font.comment, &cloned.comment));
+}
+
+#[test]
+fn font_comments_from_reader() {
+    let data = std::fs::read(manifest().join("fonts/small.flf")).unwrap();
+    let font = figdriver::FIGfont::from_reader(Cursor::new(data)).unwrap();
+    let lines: Vec<&str> = font.comment.split('\n').collect();
+    assert_eq!(lines.len(), 10);
+    assert_eq!(lines[0], "Small by Glenn Chappell 4/93 -- based on Standard");
+    assert_eq!(lines[1], "Includes ISO Latin-1");
+}

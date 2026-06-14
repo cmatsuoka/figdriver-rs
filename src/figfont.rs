@@ -3,6 +3,7 @@ use std::fmt;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek};
 use std::path::Path;
+use std::sync::Arc;
 use crate::Error;
 use crate::zip::{is_zip, decompress_zip, is_zip_reader, decompress_zip_reader};
 
@@ -36,9 +37,9 @@ pub struct FIGfont {
     /// The sub-character used to represent hardblanks in FIGcharacter data.
     /// Hardblanks are invisible placeholders that participate in smushing
     /// and kerning, displayed as a space in the output.
-    pub hardblank     : char,
+    pub hardblank : char,
     /// Number of lines in each FIGcharacter.
-    pub height        : usize,
+    pub height    : usize,
     baseline      : usize,    // number of lines from the baseline of a FIGcharacter
     max_length    : usize,    // maximum length of any line describing a FIGcharacter
     /// Legacy layout parameter for backward compatibility.
@@ -46,6 +47,8 @@ pub struct FIGfont {
     /// and positive values are bitmasks of horizontal smushing rules.
     pub old_layout: i32,
     comment_lines : usize,    // number of comment lines at the start of the file
+    /// Comment lines from the font file header, joined by '\n'.
+    pub comment   : Arc<str>,
     /// Default print direction: true for right-to-left, false for left-to-right.
     pub right_to_left : bool,
     /// Full layout parameter describing horizontal and vertical layout modes
@@ -123,11 +126,19 @@ impl FIGfont {
         f.read_line(&mut line)?;
         self.parse_header(&line)?;
 
-        // Skip comment lines
+        // Read comment lines (limit to 128 to prevent excessive allocation)
+        if self.comment_lines > 128 {
+            return Err(Error::FontFormat("too many comment lines"));
+        }
+        let mut comment_parts = Vec::with_capacity(self.comment_lines);
         for _ in 0..self.comment_lines {
             line.clear();
-            f.read_line(&mut line)?;
+            if f.read_line(&mut line)? == 0 {
+                return Err(Error::FontFormat("unexpected EOF while reading comment lines"));
+            }
+            comment_parts.push(line.trim_end_matches(['\n', '\r']).to_string());
         }
+        self.comment = comment_parts.join("\n").into();
 
         // Load required characters
         for i in (32..127).chain(vec![196, 214, 220, 228, 246, 252, 223]) {
