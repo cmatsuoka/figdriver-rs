@@ -140,8 +140,8 @@ impl FIGfont {
         }
         self.comment = comment_parts.join("\n").into();
 
-        // Load characters
-        let mut chars = HashMap::new();
+        // Load characters (95 printable ASCII + 7 Deutsch required, plus code-tagged)
+        let mut chars = HashMap::with_capacity(102 + self.count as usize);
 
         // Load required characters
         for i in (32..127).chain(vec![196, 214, 220, 228, 246, 252, 223]) {
