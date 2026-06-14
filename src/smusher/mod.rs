@@ -46,18 +46,7 @@ pub enum LayoutMode {
 
 impl LayoutMode {
     /// Resolve the layout mode to concrete `(mode, full_width)` values.
-    pub(crate) fn resolve(&self, font: &FIGfont) -> (u32, bool) {
-        // When old_layout=0 (kerning per spec) and layout=0 (no explicit
-        // Full_Layout field), the font default is kerning, not overlap.
-        let font_default = || {
-            let mode = if font.old_layout == 0 && font.layout == 0 {
-                crate::SMUSH_KERN
-            } else {
-                font.layout
-            };
-            (mode, font.old_layout == -1)
-        };
-
+    fn resolve(&self, font: &FIGfont) -> (u32, bool) {
         // Both SmushDefault and SmushForce use the font's layout when
         // SMUSH_ENABLE is set, differing only in their fallback behavior.
         if (font.layout & SMUSH_ENABLE) != 0 && matches!(self, LayoutMode::SmushDefault | LayoutMode::SmushForce) {
@@ -65,7 +54,16 @@ impl LayoutMode {
         }
 
         match self {
-            LayoutMode::Default | LayoutMode::SmushDefault => font_default(),
+            LayoutMode::Default | LayoutMode::SmushDefault => {
+                // When old_layout=0 (kerning per spec) and layout=0 (no explicit
+                // Full_Layout field), the font default is kerning, not overlap.
+                let mode = if font.old_layout == 0 && font.layout == 0 {
+                    crate::SMUSH_KERN
+                } else {
+                    font.layout
+                };
+                (mode, font.old_layout == -1)
+            }
             LayoutMode::FullWidth => (font.layout, true),
             LayoutMode::Overlap | LayoutMode::SmushForce => (0, false),
             LayoutMode::Kern => (crate::SMUSH_KERN, false),
