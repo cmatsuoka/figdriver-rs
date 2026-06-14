@@ -48,7 +48,7 @@ pub struct FIGfont {
     pub old_layout: i32,
     comment_lines : usize,    // number of comment lines at the start of the file
     /// Comment lines from the font file header, joined by '\n'.
-    pub comment   : Arc<String>,
+    pub comment   : Arc<str>,
     /// Default print direction: true for right-to-left, false for left-to-right.
     pub right_to_left : bool,
     /// Full layout parameter describing horizontal and vertical layout modes
@@ -126,14 +126,17 @@ impl FIGfont {
         f.read_line(&mut line)?;
         self.parse_header(&line)?;
 
-        // Read comment lines
+        // Read comment lines (limit to 128 to prevent excessive allocation)
+        if self.comment_lines > 128 {
+            return Err(Error::FontFormat("too many comment lines"));
+        }
         let mut comment_parts = Vec::with_capacity(self.comment_lines);
         for _ in 0..self.comment_lines {
             line.clear();
             f.read_line(&mut line)?;
             comment_parts.push(line.trim_end_matches(['\n', '\r']).to_string());
         }
-        self.comment = Arc::new(comment_parts.join("\n"));
+        self.comment = comment_parts.join("\n").into();
 
         // Load required characters
         for i in (32..127).chain(vec![196, 214, 220, 228, 246, 252, 223]) {
