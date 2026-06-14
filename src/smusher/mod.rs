@@ -47,25 +47,26 @@ pub enum LayoutMode {
 impl LayoutMode {
     /// Resolve the layout mode to concrete `(mode, full_width)` values.
     fn resolve(&self, font: &FIGfont) -> (u32, bool) {
+        // Both SmushDefault and SmushForce use the font's layout when
+        // SMUSH_ENABLE is set, differing only in their fallback behavior.
+        if (font.layout & SMUSH_ENABLE) != 0 && matches!(self, LayoutMode::SmushDefault | LayoutMode::SmushForce) {
+            return (font.layout, false);
+        }
+
         match self {
-            LayoutMode::Default => (font.layout, font.old_layout == -1),
+            LayoutMode::Default | LayoutMode::SmushDefault => {
+                // When old_layout=0 (kerning per spec) and layout=0 (no explicit
+                // Full_Layout field), the font default is kerning, not overlap.
+                let mode = if font.old_layout == 0 && font.layout == 0 {
+                    crate::SMUSH_KERN
+                } else {
+                    font.layout
+                };
+                (mode, font.old_layout == -1)
+            }
             LayoutMode::FullWidth => (font.layout, true),
-            LayoutMode::Overlap => (0, false),
+            LayoutMode::Overlap | LayoutMode::SmushForce => (0, false),
             LayoutMode::Kern => (crate::SMUSH_KERN, false),
-            LayoutMode::SmushDefault => {
-                if (font.layout & SMUSH_ENABLE) != 0 {
-                    (font.layout, false)
-                } else {
-                    (font.layout, font.old_layout == -1)
-                }
-            }
-            LayoutMode::SmushForce => {
-                if (font.layout & SMUSH_ENABLE) != 0 {
-                    (font.layout, false)
-                } else {
-                    (0, false)
-                }
-            }
             LayoutMode::Custom(v) => (*v, false),
         }
     }
@@ -550,5 +551,31 @@ mod tests {
         let output_without_unknown = sm_without_unknown.get();
 
         assert_eq!(output_with_unknown, output_without_unknown);
+    }
+
+    // LayoutMode::Default with old_layout=0 and layout=0 resolves to kerning,
+    // not overlap (issue #96).
+    #[test]
+    fn test_layout_default_old_layout_kern() {
+        let mut font = FIGfont::default();
+        font.old_layout = 0;
+        font.layout = 0;
+
+        let (mode, full_width) = LayoutMode::Default.resolve(&font);
+        assert_eq!(mode, crate::SMUSH_KERN);
+        assert!(!full_width);
+
+        // old_layout=-1 still falls back to full-width
+        font.old_layout = -1;
+        let (mode, full_width) = LayoutMode::Default.resolve(&font);
+        assert_eq!(mode, 0);
+        assert!(full_width);
+
+        // non-zero layout is preserved
+        font.old_layout = 0;
+        font.layout = crate::SMUSH_EQUAL;
+        let (mode, full_width) = LayoutMode::Default.resolve(&font);
+        assert_eq!(mode, crate::SMUSH_EQUAL);
+        assert!(!full_width);
     }
 }
