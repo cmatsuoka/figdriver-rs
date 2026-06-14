@@ -56,7 +56,7 @@ pub struct FIGfont {
     /// the complete list of code values (0 to 32767).
     pub layout    : u32,
     count         : u32,      // number of code-tagged FIGcharacters in this FIGfont
-    chars         : HashMap<i32, FIGchar>, // actual FIGcharacter definitions for this font
+    chars         : Arc<HashMap<i32, FIGchar>>, // actual FIGcharacter definitions for this font
 }
 
 impl FIGfont {
@@ -140,11 +140,14 @@ impl FIGfont {
         }
         self.comment = comment_parts.join("\n").into();
 
+        // Load characters
+        let mut chars = HashMap::new();
+
         // Load required characters
         for i in (32..127).chain(vec![196, 214, 220, 228, 246, 252, 223]) {
             let mut c = FIGchar::new();
             c.load(f, self.height)?;
-            self.chars.insert(i, c);
+            chars.insert(i, c);
         }
 
         // Load code-tagged characters
@@ -159,9 +162,10 @@ impl FIGfont {
 
             let mut c = FIGchar::new();
             c.load(f, self.height)?;
-            self.chars.insert(i32_from_str(code)?, c);
+            chars.insert(i32_from_str(code)?, c);
         }
 
+        self.chars = Arc::new(chars);
         Ok(self)
     }
 
