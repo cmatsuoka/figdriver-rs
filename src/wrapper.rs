@@ -36,12 +36,12 @@ pub enum Align {
 /// # }
 /// ```
 pub struct WrapperBuilder {
-    font: FIGfont,
-    wrap_width: usize,
-    align: Option<Align>,
-    control: Option<Control>,
-    layout_mode: LayoutMode,
-    right_to_left: Option<bool>,
+    font          : FIGfont,
+    wrap_width    : usize,
+    align         : Option<Align>,
+    control       : Option<Control>,
+    layout_mode   : LayoutMode,
+    right_to_left : Option<bool>,
 }
 
 impl WrapperBuilder {
@@ -434,7 +434,7 @@ impl Wrapper {
     /// Render a string in line mode.
     ///
     /// Decodes the string using the control, clears the buffer, tokenizes and wraps,
-   /// and flushes all rendered lines through the print callback.
+    /// and flushes all rendered lines through the print callback.
     pub fn write_line(&mut self, s: &str, print_fn: &dyn Fn(&[String])) {
         let codes = self.decoder.decode_bytes(s.as_bytes());
         self.clear();
